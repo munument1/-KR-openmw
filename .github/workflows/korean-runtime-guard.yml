@@ -1,0 +1,60 @@
+name: Korean runtime guard
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - apps/openmw/mwdialogue/dialoguemanagerimp.cpp
+      - apps/openmw/mwdialogue/keywordsearch.cpp
+      - apps/openmw/mwdialogue/keywordsearch.hpp
+      - components/esm3/esmreader.cpp
+      - components/translation/translation.cpp
+      - korean/patches/**
+      - .github/workflows/korean-runtime-guard.yml
+  pull_request:
+    branches:
+      - master
+    paths:
+      - apps/openmw/mwdialogue/dialoguemanagerimp.cpp
+      - apps/openmw/mwdialogue/keywordsearch.cpp
+      - apps/openmw/mwdialogue/keywordsearch.hpp
+      - components/esm3/esmreader.cpp
+      - components/translation/translation.cpp
+      - korean/patches/**
+      - .github/workflows/korean-runtime-guard.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate-korean-runtime:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Verify validated patches are present in source
+        run: |
+          set -euo pipefail
+          git config core.autocrlf false
+          for patch in \
+            korean/patches/0001-cjk-topic-discovery.patch \
+            korean/patches/0002-utf8-bom-sidecars.patch \
+            korean/patches/0003-mixed-utf8-esm-reader.patch; do
+            echo "Reverse-checking $patch"
+            git apply --reverse --check "$patch"
+          done
+
+      - name: Verify Korean runtime invariants
+        run: |
+          set -euo pipefail
+          grep -F 'parseHyperText(text, mTranslationDataStorage, true)' apps/openmw/mwdialogue/dialoguemanagerimp.cpp
+          grep -F 'bool overlaps = false' apps/openmw/mwdialogue/keywordsearch.hpp
+          grep -F 'static_cast<unsigned char>(*i) < 0xe0' apps/openmw/mwdialogue/keywordsearch.cpp
+          grep -F 'std::ios::binary' components/translation/translation.cpp
+          grep -F 'utf8BomMode ? std::string_view(line)' components/translation/translation.cpp
+          grep -F 'bool isValidUtf8WithHangul(std::string_view input)' components/esm3/esmreader.cpp
+          grep -F 'if (isValidUtf8WithHangul(raw))' components/esm3/esmreader.cpp
+          grep -F 'mEncoder->getUtf8(raw)' components/esm3/esmreader.cpp
