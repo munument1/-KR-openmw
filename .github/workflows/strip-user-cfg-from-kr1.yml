@@ -1,0 +1,66 @@
+name: Strip user cfg from KR1 release
+
+on:
+  push:
+    paths:
+      - .github/workflows/strip-user-cfg-from-kr1.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch-release:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    env:
+      TAG: openmw-0.51.0-kr1
+      ASSET: Morrowind-Korean-OpenMW-0.51.0-KR1-Full.zip
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: master
+
+      - name: Remove user configuration files from release asset
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          root="$RUNNER_TEMP/kr1-no-user-cfg"
+          original="$root/original"
+          unpacked="$root/unpacked"
+          patched="$root/$ASSET"
+          mkdir -p "$original" "$unpacked"
+
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --pattern "$ASSET" --dir "$original"
+          unzip -q "$original/$ASSET" -d "$unpacked"
+
+          echo 'CFG files before cleanup:'
+          find "$unpacked" -type f -iname '*.cfg' -print | sed "s#^$unpacked/##" | sort || true
+
+          mapfile -t user_cfgs < <(find "$unpacked" -type f \( -iname 'openmw.cfg' -o -iname 'settings.cfg' -o -iname 'launcher.cfg' \) -print)
+          printf 'Removing user cfg: %s\n' "${user_cfgs[@]:-<none>}"
+          if (( ${#user_cfgs[@]} )); then
+            rm -f -- "${user_cfgs[@]}"
+          fi
+
+          if find "$unpacked" -type f \( -iname 'openmw.cfg' -o -iname 'settings.cfg' -o -iname 'launcher.cfg' \) -print -quit | grep -q .; then
+            echo 'User configuration file still present after cleanup' >&2
+            exit 1
+          fi
+
+          font_def="$(find "$unpacked" -type f -name 'MysticCards.omwfont' -print -quit)"
+          test -n "$font_def"
+          font_dir="$(dirname "$font_def")"
+          grep -q 'Source" value="NanumGothic-Regular.ttf"' "$font_def"
+          grep -q '44032 55203' "$font_def"
+          test -s "$font_dir/NanumGothic-Regular.ttf"
+
+          (cd "$unpacked" && zip -qr -9 "$patched" .)
+          unzip -tq "$patched"
+          echo "Patched asset SHA-256: $(sha256sum "$patched" | awk '{print $1}')"
+          echo 'CFG files after cleanup:'
+          unzip -Z1 "$patched" | grep -Ei '(^|/)[^/]+\.cfg$' | sort || true
+
+          gh release upload "$TAG" "$patched" --repo "$GITHUB_REPOSITORY" --clobber
+          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[] | select(.name == env.ASSET) | {name,size,updatedAt,digest}'
