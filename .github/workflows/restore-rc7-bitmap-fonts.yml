@@ -2,6 +2,11 @@ name: Restore RC7 Korean bitmap fonts
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - master
+    paths:
+      - .github/workflows/restore-rc7-bitmap-fonts.yml
 
 permissions:
   contents: write
