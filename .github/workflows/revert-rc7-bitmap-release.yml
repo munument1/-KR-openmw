@@ -1,0 +1,76 @@
+name: Revert RC7 bitmap fonts from KR1 release
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - .github/workflows/revert-rc7-bitmap-release.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Remove bitmap font override from KR1 asset
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          ASSET='Morrowind-Korean-OpenMW-0.51.0-KR1-Full.zip'
+          mkdir -p /tmp/kr1
+          cd /tmp/kr1
+          gh release download openmw-0.51.0-kr1 --repo "$GITHUB_REPOSITORY" --pattern "$ASSET"
+
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib, zipfile
+
+          asset = Path('/tmp/kr1/Morrowind-Korean-OpenMW-0.51.0-KR1-Full.zip')
+          extract = Path('/tmp/kr1/extracted')
+          with zipfile.ZipFile(asset) as z:
+              z.extractall(extract)
+
+          candidates = list(extract.glob('*/resources/vfs/fonts')) + list(extract.glob('resources/vfs/fonts'))
+          if len(candidates) != 1:
+              raise SystemExit(f'expected one resources/vfs/fonts directory, got {candidates}')
+          fonts = candidates[0]
+          bad = [
+              'MysticCards.fnt', 'MysticCards.tex', 'magic_cards_regular.fnt',
+              'DemonicLetters.fnt', 'DemonicLetters.tex', 'daedric_font.fnt'
+          ]
+          for name in bad:
+              p = fonts / name
+              if p.exists():
+                  p.unlink()
+
+          required = ['MysticCards.omwfont', 'DejaVuLGCSansMono.omwfont', 'Galmuri11.omwfont', 'Galmuri11.ttf']
+          for name in required:
+              if not (fonts / name).is_file():
+                  raise SystemExit(f'missing required font resource: {name}')
+
+          tmp = asset.with_suffix('.new.zip')
+          with zipfile.ZipFile(tmp, 'w', compression=zipfile.ZIP_DEFLATED, compresslevel=9) as out:
+              for p in sorted(extract.rglob('*')):
+                  if p.is_file():
+                      out.write(p, p.relative_to(extract).as_posix())
+          tmp.replace(asset)
+
+          with zipfile.ZipFile(asset) as z:
+              broken = z.testzip()
+              if broken:
+                  raise SystemExit(f'zip integrity failed: {broken}')
+              names = set(z.namelist())
+              root = fonts.relative_to(extract).as_posix()
+              for name in bad:
+                  if f'{root}/{name}' in names:
+                      raise SystemExit(f'legacy bitmap font still present: {name}')
+              for name in required:
+                  if f'{root}/{name}' not in names:
+                      raise SystemExit(f'required omwfont resource missing: {name}')
+          print('FINAL_ZIP_SHA256=' + hashlib.sha256(asset.read_bytes()).hexdigest())
+          print('FINAL_ZIP_SIZE=' + str(asset.stat().st_size))
+          PY
+
+          gh release upload openmw-0.51.0-kr1 "$ASSET" --repo "$GITHUB_REPOSITORY" --clobber
