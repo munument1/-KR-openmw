@@ -51,6 +51,12 @@ set(BUILTIN_DATA_FILES
     fonts/MysticCards.ttf
     fonts/MysticCards.omwfont
     fonts/MysticCardsFontLicense.txt
+    fonts/DemonicLetters.fnt
+    fonts/DemonicLetters.tex
+    fonts/daedric_font.fnt
+    fonts/MysticCards.fnt
+    fonts/MysticCards.tex
+    fonts/magic_cards_regular.fnt
 
     # Default animation blending config
     animations/animation-config.yaml
