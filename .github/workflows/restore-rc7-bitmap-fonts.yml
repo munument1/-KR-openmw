@@ -1,0 +1,141 @@
+name: Restore RC7 Korean bitmap fonts
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  restore:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download verified RC7 font payload
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/rc7
+          gh release download v1.0.7-rc7 \
+            --repo munument1/OpenMW-korean-legacy \
+            --pattern 'Morrowind_Korean_ReTranslation_v1.0.7-rc7_OpenMW_0.51.0_IMPORT_FONT_ALIAS_FIX.zip' \
+            --dir /tmp/rc7
+          unzip -q /tmp/rc7/*.zip -d /tmp/rc7/extracted
+          FONT_DIR=$(find /tmp/rc7/extracted -type d -path '*/Morrowind_Korean_ReTranslation_v1.0.7-rc7/Fonts' -print -quit)
+          test -n "$FONT_DIR"
+          echo "RC7_FONT_DIR=$FONT_DIR" >> "$GITHUB_ENV"
+
+          echo 'f4a361c752f937beccdfff013d65901797f3d2929f74440d4079df85629ecfcd  '"$FONT_DIR"'/MysticCards.fnt' | sha256sum -c -
+          echo 'f4a361c752f937beccdfff013d65901797f3d2929f74440d4079df85629ecfcd  '"$FONT_DIR"'/magic_cards_regular.fnt' | sha256sum -c -
+          echo 'ee7ab5662eedf4cab7bdedf86e9bf5066ad5de36e2d9efed9910dec1cfdfefa2  '"$FONT_DIR"'/DemonicLetters.fnt' | sha256sum -c -
+          echo 'ee7ab5662eedf4cab7bdedf86e9bf5066ad5de36e2d9efed9910dec1cfdfefa2  '"$FONT_DIR"'/daedric_font.fnt' | sha256sum -c -
+          test -f "$FONT_DIR/MysticCards.tex"
+          test -f "$FONT_DIR/DemonicLetters.tex"
+          sha256sum "$FONT_DIR/MysticCards.tex" "$FONT_DIR/DemonicLetters.tex"
+
+      - name: Restore bitmap fonts to source resources
+        run: |
+          set -euo pipefail
+          cp "$RC7_FONT_DIR/MysticCards.fnt" files/data/fonts/MysticCards.fnt
+          cp "$RC7_FONT_DIR/MysticCards.tex" files/data/fonts/MysticCards.tex
+          cp "$RC7_FONT_DIR/magic_cards_regular.fnt" files/data/fonts/magic_cards_regular.fnt
+          cp "$RC7_FONT_DIR/DemonicLetters.fnt" files/data/fonts/DemonicLetters.fnt
+          cp "$RC7_FONT_DIR/DemonicLetters.tex" files/data/fonts/DemonicLetters.tex
+          cp "$RC7_FONT_DIR/daedric_font.fnt" files/data/fonts/daedric_font.fnt
+
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('files/data/CMakeLists.txt')
+          s = p.read_text()
+          entries = '''    fonts/DemonicLetters.fnt\n    fonts/DemonicLetters.tex\n    fonts/daedric_font.fnt\n    fonts/MysticCards.fnt\n    fonts/MysticCards.tex\n    fonts/magic_cards_regular.fnt\n'''
+          if 'fonts/MysticCards.fnt' not in s:
+              marker = '    fonts/MysticCardsFontLicense.txt\n'
+              if marker not in s:
+                  raise SystemExit('font marker not found in CMakeLists.txt')
+              s = s.replace(marker, marker + entries)
+              p.write_text(s)
+          PY
+
+          git diff -- files/data/CMakeLists.txt
+          sha256sum files/data/fonts/*.fnt files/data/fonts/*.tex
+
+      - name: Commit restored resources
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add files/data/CMakeLists.txt \
+                  files/data/fonts/MysticCards.fnt \
+                  files/data/fonts/MysticCards.tex \
+                  files/data/fonts/magic_cards_regular.fnt \
+                  files/data/fonts/DemonicLetters.fnt \
+                  files/data/fonts/DemonicLetters.tex \
+                  files/data/fonts/daedric_font.fnt
+          if ! git diff --cached --quiet; then
+            git commit -m 'Restore RC7 Korean bitmap font compatibility'
+            git push origin HEAD:master
+          fi
+
+      - name: Patch KR1 release asset with RC7 bitmap fonts
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          ASSET='Morrowind-Korean-OpenMW-0.51.0-KR1-Full.zip'
+          mkdir -p /tmp/kr1
+          cd /tmp/kr1
+          gh release download openmw-0.51.0-kr1 --repo "$GITHUB_REPOSITORY" --pattern "$ASSET"
+
+          python3 - <<'PY'
+          from pathlib import Path
+          import zipfile, shutil, hashlib
+
+          asset = Path('/tmp/kr1/Morrowind-Korean-OpenMW-0.51.0-KR1-Full.zip')
+          extract = Path('/tmp/kr1/extracted')
+          with zipfile.ZipFile(asset) as z:
+              z.extractall(extract)
+
+          candidates = list(extract.glob('*/resources/vfs/fonts')) + list(extract.glob('resources/vfs/fonts'))
+          if len(candidates) != 1:
+              raise SystemExit(f'expected one resources/vfs/fonts directory, got {candidates}')
+          dst = candidates[0]
+          src = Path('/tmp/rc7/extracted')
+          src_candidates = list(src.glob('**/Morrowind_Korean_ReTranslation_v1.0.7-rc7/Fonts'))
+          if len(src_candidates) != 1:
+              raise SystemExit(f'expected one RC7 Fonts directory, got {src_candidates}')
+          src = src_candidates[0]
+
+          names = [
+              'MysticCards.fnt', 'MysticCards.tex', 'magic_cards_regular.fnt',
+              'DemonicLetters.fnt', 'DemonicLetters.tex', 'daedric_font.fnt'
+          ]
+          for name in names:
+              shutil.copy2(src / name, dst / name)
+
+          tmp = asset.with_suffix('.new.zip')
+          with zipfile.ZipFile(tmp, 'w', compression=zipfile.ZIP_DEFLATED, compresslevel=9) as out:
+              for p in sorted(extract.rglob('*')):
+                  if p.is_file():
+                      out.write(p, p.relative_to(extract).as_posix())
+          tmp.replace(asset)
+
+          with zipfile.ZipFile(asset) as z:
+              bad = z.testzip()
+              if bad:
+                  raise SystemExit(f'zip integrity failed: {bad}')
+              root = dst.relative_to(extract).as_posix()
+              for name in names:
+                  data = z.read(f'{root}/{name}')
+                  print(name, len(data), hashlib.sha256(data).hexdigest())
+              if hashlib.sha256(z.read(f'{root}/MysticCards.fnt')).hexdigest() != 'f4a361c752f937beccdfff013d65901797f3d2929f74440d4079df85629ecfcd':
+                  raise SystemExit('MysticCards.fnt hash mismatch in final ZIP')
+          print('FINAL_ZIP_SHA256=' + hashlib.sha256(asset.read_bytes()).hexdigest())
+          print('FINAL_ZIP_SIZE=' + str(asset.stat().st_size))
+          PY
+
+          gh release upload openmw-0.51.0-kr1 "$ASSET" --repo "$GITHUB_REPOSITORY" --clobber
