@@ -1,0 +1,195 @@
+name: Apply Galmuri fonts to KR1
+
+on:
+  push:
+    branches:
+      - fix/galmuri-font-slots
+    paths:
+      - .github/workflows/apply-galmuri-fonts.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    env:
+      RELEASE_TAG: openmw-0.51.0-kr1
+      ASSET_NAME: Morrowind-Korean-OpenMW-0.51.0-KR1-Full.zip
+      GALMURI_SHA256: e24256f42e43713d2ea086a1e1669d78b968f5b3cc547e5c157f0606ffa5def1
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/galmuri-font-slots
+          fetch-depth: 0
+
+      - name: Download exact Galmuri11 font and license
+        run: |
+          set -euo pipefail
+          mkdir -p files/data/fonts
+          curl -fL --retry 3 -o files/data/fonts/Galmuri11.ttf \
+            https://raw.githubusercontent.com/quiple/galmuri/main/dist/Galmuri11.ttf
+          echo "$GALMURI_SHA256  files/data/fonts/Galmuri11.ttf" | sha256sum -c -
+          curl -fL --retry 3 -o files/data/fonts/Galmuri11-OFL-1.1.md \
+            https://raw.githubusercontent.com/quiple/galmuri/main/ofl.md
+
+      - name: Create Galmuri OpenMW font resources
+        run: |
+          set -euo pipefail
+          cat > files/data/fonts/Galmuri11.omwfont <<'EOF'
+          <MyGUI type="Resource" version="1.1">
+              <Resource type="ResourceTrueTypeFont">
+                  <Property key="Source" value="Galmuri11.ttf"/>
+                  <Property key="Antialias" value="false"/>
+                  <Property key="SubstituteCode" value="95"/>
+                  <Property key="TabWidth" value="8"/>
+                  <Property key="OffsetHeight" value="0"/>
+                  <Property key="Resolution" value="70"/>
+                  <Codes>
+                      <Code range="33 126"/>
+                      <Code range="160 382"/>
+                      <Code range="711"/>
+                      <Code range="1025 1105"/>
+                      <Code range="7838"/>
+                      <Code range="8208 8212"/>
+                      <Code range="8216 8217"/>
+                      <Code range="8220 8221"/>
+                      <Code range="8228 8230"/>
+                      <Code range="12288 12317"/>
+                      <Code range="12319"/>
+                      <Code range="12342"/>
+                      <Code range="12348"/>
+                      <Code range="12593 12686"/>
+                      <Code range="44032 55203"/>
+                  </Codes>
+              </Resource>
+          </MyGUI>
+          EOF
+
+          cat > files/data/fonts/MysticCards.omwfont <<'EOF'
+          <MyGUI type="Resource" version="1.1">
+              <Resource type="ResourceTrueTypeFont">
+                  <Property key="Source" value="Galmuri11.ttf"/>
+                  <Property key="Antialias" value="false"/>
+                  <Property key="SubstituteCode" value="95"/>
+                  <Property key="TabWidth" value="8"/>
+                  <Property key="OffsetHeight" value="0"/>
+                  <Property key="Resolution" value="70"/>
+                  <Codes>
+                      <Code range="33 126"/>
+                      <Code range="160 382"/>
+                      <Code range="711"/>
+                      <Code range="1025 1105"/>
+                      <Code range="7838"/>
+                      <Code range="8208 8212"/>
+                      <Code range="8216 8217"/>
+                      <Code range="8220 8221"/>
+                      <Code range="8228 8230"/>
+                      <Code range="12288 12317"/>
+                      <Code range="12319"/>
+                      <Code range="12342"/>
+                      <Code range="12348"/>
+                      <Code range="12593 12686"/>
+                      <Code range="44032 55203"/>
+                  </Codes>
+              </Resource>
+          </MyGUI>
+          EOF
+
+          cat > files/data/fonts/DejaVuLGCSansMono.omwfont <<'EOF'
+          <MyGUI type="Resource" version="1.1">
+              <Resource type="ResourceTrueTypeFont">
+                  <Property key="Source" value="Galmuri11.ttf"/>
+                  <Property key="Antialias" value="false"/>
+                  <Property key="SubstituteCode" value="95"/>
+                  <Property key="TabWidth" value="8"/>
+                  <Property key="OffsetHeight" value="0"/>
+                  <Property key="Resolution" value="58"/>
+                  <Codes>
+                      <Code range="33 126"/>
+                      <Code range="160 382"/>
+                      <Code range="711"/>
+                      <Code range="1025 1105"/>
+                      <Code range="7838"/>
+                      <Code range="8208 8212"/>
+                      <Code range="8216 8217"/>
+                      <Code range="8220 8221"/>
+                      <Code range="8228 8230"/>
+                      <Code range="12288 12317"/>
+                      <Code range="12319"/>
+                      <Code range="12342"/>
+                      <Code range="12348"/>
+                      <Code range="12593 12686"/>
+                      <Code range="44032 55203"/>
+                  </Codes>
+              </Resource>
+          </MyGUI>
+          EOF
+
+          rm -f files/data/fonts/NanumGothic-Regular.ttf files/data/fonts/NanumGothicFontLicense.txt
+
+      - name: Commit font resource changes
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -- \
+            files/data/fonts/Galmuri11.ttf \
+            files/data/fonts/Galmuri11-OFL-1.1.md \
+            files/data/fonts/Galmuri11.omwfont \
+            files/data/fonts/MysticCards.omwfont \
+            files/data/fonts/DejaVuLGCSansMono.omwfont \
+            files/data/fonts/NanumGothic-Regular.ttf \
+            files/data/fonts/NanumGothicFontLicense.txt
+          git diff --cached --check
+          git commit -m "Use Galmuri11 for Korean UI font slots"
+          git push origin HEAD:fix/galmuri-font-slots
+
+      - name: Download current KR1 release asset
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p work
+          gh release download "$RELEASE_TAG" --pattern "$ASSET_NAME" --dir work --clobber
+          unzip -t "work/$ASSET_NAME" >/dev/null
+
+      - name: Replace release font resources
+        run: |
+          set -euo pipefail
+          rm -rf work/unpacked
+          mkdir -p work/unpacked
+          unzip -q "work/$ASSET_NAME" -d work/unpacked
+
+          FONT_DIR="work/unpacked/OpenMW/resources/vfs/fonts"
+          test -d "$FONT_DIR"
+          cp files/data/fonts/Galmuri11.ttf "$FONT_DIR/Galmuri11.ttf"
+          cp files/data/fonts/Galmuri11-OFL-1.1.md "$FONT_DIR/Galmuri11-OFL-1.1.md"
+          cp files/data/fonts/Galmuri11.omwfont "$FONT_DIR/Galmuri11.omwfont"
+          cp files/data/fonts/MysticCards.omwfont "$FONT_DIR/MysticCards.omwfont"
+          cp files/data/fonts/DejaVuLGCSansMono.omwfont "$FONT_DIR/DejaVuLGCSansMono.omwfont"
+          rm -f "$FONT_DIR/NanumGothic-Regular.ttf" "$FONT_DIR/NanumGothicFontLicense.txt"
+
+          find work/unpacked -type d -iname 'CFG*' -prune -exec rm -rf {} +
+          find work/unpacked -type f -iname '*.cfg' -delete
+
+          rm -f "work/$ASSET_NAME"
+          (cd work/unpacked && zip -qr9 "../$ASSET_NAME" .)
+          unzip -t "work/$ASSET_NAME" >/dev/null
+
+          unzip -l "work/$ASSET_NAME" | grep -F 'OpenMW/resources/vfs/fonts/Galmuri11.ttf'
+          unzip -l "work/$ASSET_NAME" | grep -F 'OpenMW/resources/vfs/fonts/Galmuri11.omwfont'
+          unzip -l "work/$ASSET_NAME" | grep -F 'OpenMW/resources/vfs/fonts/MysticCards.omwfont'
+          unzip -l "work/$ASSET_NAME" | grep -F 'OpenMW/resources/vfs/fonts/DejaVuLGCSansMono.omwfont'
+          ! unzip -l "work/$ASSET_NAME" | grep -F 'NanumGothic-Regular.ttf'
+          ! unzip -l "work/$ASSET_NAME" | grep -Ei '(^|/)CFG[^/]*/'
+          ! unzip -l "work/$ASSET_NAME" | grep -Ei '\.cfg$'
+          sha256sum "work/$ASSET_NAME"
+
+      - name: Replace KR1 release asset
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh release upload "$RELEASE_TAG" "work/$ASSET_NAME" --clobber
+          echo "Release asset replaced successfully."
