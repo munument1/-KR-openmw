@@ -1,0 +1,91 @@
+name: Add My Games CFG to KR1 release
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - .github/workflows/add-mygames-cfg-to-kr1.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Patch KR1 release with My Games CFG
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          ASSET='Morrowind-Korean-OpenMW-0.51.0-KR1-Full.zip'
+          CFG_DIR='CFG - 내문서 My Games OpenMW에 덮어쓰기'
+          CFG_SRC='packaging/mygames/openmw.cfg'
+
+          test -f "$CFG_SRC"
+          test "$(sha256sum "$CFG_SRC" | awk '{print $1}')" = '73d05765c362f30b6849ce43e7fc70e60ae521a94c2e5e68151412efae4f8bc7'
+          tail -n 4 "$CFG_SRC" | grep -Fx 'fallback=Fonts_Font_0,MysticCards'
+          tail -n 4 "$CFG_SRC" | grep -Fx 'fallback=Fonts_Font_1,DejaVuLGCSansMono'
+          tail -n 4 "$CFG_SRC" | grep -Fx 'fallback=Fonts_Font_2,DemonicLetters'
+          tail -n 4 "$CFG_SRC" | grep -Fx 'encoding=win1252'
+
+          mkdir -p /tmp/kr1
+          cd /tmp/kr1
+          gh release download openmw-0.51.0-kr1 --repo "$GITHUB_REPOSITORY" --pattern "$ASSET"
+          rm -rf extracted
+          mkdir extracted
+          unzip -q "$ASSET" -d extracted
+
+          # Remove any stale CFG helper folder, then add exactly the requested one.
+          find extracted -maxdepth 1 -type d -iname 'CFG*' -prune -exec rm -rf {} +
+          mkdir -p "extracted/$CFG_DIR"
+          cp "$GITHUB_WORKSPACE/$CFG_SRC" "extracted/$CFG_DIR/openmw.cfg"
+
+          # Do not reintroduce legacy bitmap fonts that broke UTF-8 Korean.
+          FONT_DIR=$(find extracted -type d -path '*/resources/vfs/fonts' -print -quit)
+          test -n "$FONT_DIR"
+          for f in MysticCards.fnt MysticCards.tex magic_cards_regular.fnt DemonicLetters.fnt DemonicLetters.tex daedric_font.fnt; do
+            test ! -e "$FONT_DIR/$f"
+          done
+          test -f "$FONT_DIR/MysticCards.omwfont"
+          test -f "$FONT_DIR/Galmuri11.ttf"
+
+          rm -f "$ASSET"
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib, zipfile
+
+          root = Path('/tmp/kr1/extracted')
+          asset = Path('/tmp/kr1/Morrowind-Korean-OpenMW-0.51.0-KR1-Full.zip')
+          cfg_rel = 'CFG - 내문서 My Games OpenMW에 덮어쓰기/openmw.cfg'
+          expected_cfg_sha = '73d05765c362f30b6849ce43e7fc70e60ae521a94c2e5e68151412efae4f8bc7'
+
+          with zipfile.ZipFile(asset, 'w', compression=zipfile.ZIP_DEFLATED, compresslevel=9) as z:
+              for p in sorted(root.rglob('*')):
+                  if p.is_file():
+                      z.write(p, p.relative_to(root).as_posix())
+
+          with zipfile.ZipFile(asset) as z:
+              bad = z.testzip()
+              if bad:
+                  raise SystemExit(f'zip integrity failed: {bad}')
+              names = set(z.namelist())
+              if cfg_rel not in names:
+                  raise SystemExit('My Games openmw.cfg missing from final ZIP')
+              cfg = z.read(cfg_rel)
+              if hashlib.sha256(cfg).hexdigest() != expected_cfg_sha:
+                  raise SystemExit('My Games openmw.cfg hash mismatch')
+              legacy = [n for n in names if n.endswith(('/MysticCards.fnt','/MysticCards.tex','/magic_cards_regular.fnt','/DemonicLetters.fnt','/DemonicLetters.tex','/daedric_font.fnt'))]
+              if legacy:
+                  raise SystemExit(f'legacy bitmap font leaked into ZIP: {legacy}')
+              cfg_paths = [n for n in names if n.lower().endswith('.cfg')]
+              print('CFG_PATHS=', cfg_paths)
+
+          print('FINAL_ZIP_SHA256=' + hashlib.sha256(asset.read_bytes()).hexdigest())
+          print('FINAL_ZIP_SIZE=' + str(asset.stat().st_size))
+          PY
+
+          gh release upload openmw-0.51.0-kr1 "$ASSET" --repo "$GITHUB_REPOSITORY" --clobber
