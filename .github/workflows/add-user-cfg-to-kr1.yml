@@ -1,0 +1,51 @@
+name: Add My Games OpenMW cfg to KR1 release
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - .github/workflows/add-user-cfg-to-kr1.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Add user cfg folder to KR1 asset
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CFG_GZ_B64: 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
+        run: |
+          set -euo pipefail
+          ASSET='Morrowind-Korean-OpenMW-0.51.0-KR1-Full.zip'
+          mkdir -p /tmp/kr1
+          cd /tmp/kr1
+          gh release download openmw-0.51.0-kr1 --repo "$GITHUB_REPOSITORY" --pattern "$ASSET"
+          rm -rf extracted
+          mkdir extracted
+          unzip -q "$ASSET" -d extracted
+
+          find extracted -maxdepth 1 -type d -iname 'CFG*' -prune -exec rm -rf {} +
+          CFG_DIR='extracted/CFG - 내문서 My Games OpenMW에 덮어쓰기'
+          mkdir -p "$CFG_DIR"
+          printf '%s' "$CFG_GZ_B64" | base64 -d | gzip -dc > "$CFG_DIR/openmw.cfg"
+
+          tail -n 5 "$CFG_DIR/openmw.cfg"
+          grep -Fx 'fallback=Fonts_Font_0,MysticCards' "$CFG_DIR/openmw.cfg"
+          grep -Fx 'fallback=Fonts_Font_1,DejaVuLGCSansMono' "$CFG_DIR/openmw.cfg"
+          grep -Fx 'fallback=Fonts_Font_2,DemonicLetters' "$CFG_DIR/openmw.cfg"
+          test "$(tail -n 1 "$CFG_DIR/openmw.cfg")" = 'encoding=win1252'
+          if find extracted -type f \( -iname 'MysticCards.fnt' -o -iname 'MysticCards.tex' -o -iname 'magic_cards_regular.fnt' -o -iname 'DemonicLetters.fnt' -o -iname 'DemonicLetters.tex' -o -iname 'daedric_font.fnt' \) | grep -q .; then
+            echo 'ERROR: legacy bitmap font still present'
+            exit 1
+          fi
+
+          rm -f "$ASSET"
+          (cd extracted && zip -qr9 ../"$ASSET" .)
+          unzip -tq "$ASSET"
+          unzip -Z1 "$ASSET" | grep -F 'CFG - 내문서 My Games OpenMW에 덮어쓰기/openmw.cfg'
+          sha256sum "$ASSET"
+          stat -c '%s bytes' "$ASSET"
+          gh release upload openmw-0.51.0-kr1 "$ASSET" --repo "$GITHUB_REPOSITORY" --clobber
