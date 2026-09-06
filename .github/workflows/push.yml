@@ -5,12 +5,18 @@ on:
     branches:
       - master
     paths-ignore:
+      - .github/workflows/push.yml
       - .github/workflows/korean-baseline-051.yml
+      - .github/workflows/korean-package-051.yml
+      - packaging/korean/**
   pull_request:
     branches:
       - master
     paths-ignore:
+      - .github/workflows/push.yml
       - .github/workflows/korean-baseline-051.yml
+      - .github/workflows/korean-package-051.yml
+      - packaging/korean/**
 
 concurrency:
   group: build-and-test-${{ github.event.pull_request.number || github.ref }}
@@ -60,23 +66,6 @@ jobs:
 
     - name: Run OpenMW-CS tests
       run: ./openmw-cs-tests
-
-    # - name: Install
-    #   shell: bash
-    #   run: cmake --install .
-
-    # - name: Create Artifact
-    #   shell: bash
-    #   working-directory: install
-    #   run: |
-    #     ls -laR
-    #     7z a ../build_artifact.7z .
-
-    # - name: Upload Artifact
-    #   uses: actions/upload-artifact@v1
-    #   with:
-    #     path: ./build_artifact.7z
-    #     name: build_artifact.7z
 
   MacOS:
     strategy:
