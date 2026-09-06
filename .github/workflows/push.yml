@@ -4,9 +4,13 @@ on:
   push:
     branches:
       - master
+    paths-ignore:
+      - .github/workflows/korean-baseline-051.yml
   pull_request:
     branches:
       - master
+    paths-ignore:
+      - .github/workflows/korean-baseline-051.yml
 
 concurrency:
   group: build-and-test-${{ github.event.pull_request.number || github.ref }}
