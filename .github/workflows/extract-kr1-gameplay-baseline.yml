@@ -6,6 +6,7 @@ on:
       - analysis/extract-kr1-gameplay-baseline
     paths:
       - .github/workflows/extract-kr1-gameplay-baseline.yml
+      - tools/extract_release_gameplay_baseline.py
 
 permissions:
   contents: write
