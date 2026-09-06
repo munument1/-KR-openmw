@@ -39,6 +39,11 @@ jobs:
           gh release download "$CP949_TAG" --repo "$CP949_REPO" --pattern "$CP949_ASSET" --dir "$root/cp949"
           unzip -q "$root/openmw/$OPENMW_ASSET" -d "$root/openmw-unpacked"
           unzip -q "$root/cp949/$CP949_ASSET" -d "$root/cp949-unpacked"
+          while IFS= read -r -d '' nested; do
+            dest="${nested%.zip}.unpacked"
+            mkdir -p "$dest"
+            unzip -q "$nested" -d "$dest"
+          done < <(find "$root/cp949-unpacked" -type f -iname '*.zip' -print0)
           printf '%s\n' "$root" > "$RUNNER_TEMP/kr1-root.txt"
 
       - name: Extract and compare gameplay data
@@ -59,7 +64,7 @@ jobs:
             echo "OpenMW ZIP entries:"
             find "$root/openmw-unpacked" -type f -printf '%P\n' | sort
             echo
-            echo "CP949 ZIP entries:"
+            echo "CP949 ZIP entries (including nested ZIPs):"
             find "$root/cp949-unpacked" -type f -printf '%P\n' | sort
           } > analysis/kr1-gameplay-baseline/release_inventory.txt
 
