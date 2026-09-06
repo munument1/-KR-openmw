@@ -1,4 +1,4 @@
-name: Korean 0.51 baseline one-shot
+name: Korean 0.51 targeted baseline
 
 on:
   push:
@@ -11,15 +11,137 @@ permissions:
   contents: read
 
 jobs:
-  Korean-Windows-051-Baseline:
-    uses: ./.github/workflows/windows.yml
-    with:
-      image: "2022"
-      msvc: "2022"
-      build-type: Release
-      package: true
-      release: false
-      source_repository: OpenMW/openmw
-      source_ref: openmw-0.51.0
-      korean_overlay: true
-    secrets: inherit
+  Korean-Windows-051-Targeted:
+    runs-on: windows-2022
+
+    steps:
+    - name: Checkout OpenMW 0.51.0
+      uses: actions/checkout@v6
+      with:
+        repository: OpenMW/openmw
+        ref: openmw-0.51.0
+        fetch-depth: 0
+
+    - name: Checkout Korean port assets
+      uses: actions/checkout@v6
+      with:
+        repository: ${{ github.repository }}
+        ref: ${{ github.sha }}
+        path: _korean_port
+        fetch-depth: 1
+
+    - name: Apply Korean runtime patchset and assets
+      shell: bash
+      run: |
+        set -euo pipefail
+        for patch in _korean_port/korean/patches/*.patch; do
+          echo "Checking $patch"
+          git apply --check "$patch"
+          git apply "$patch"
+        done
+
+        install -m 0644 _korean_port/files/data/fonts/DejaVuLGCSansMono.omwfont files/data/fonts/DejaVuLGCSansMono.omwfont
+        install -m 0644 _korean_port/files/data/fonts/MysticCards.omwfont files/data/fonts/MysticCards.omwfont
+        install -m 0644 _korean_port/files/data/fonts/Galmuri11.omwfont files/data/fonts/Galmuri11.omwfont
+        install -m 0644 _korean_port/files/data/fonts/Galmuri11.ttf files/data/fonts/Galmuri11.ttf
+        install -m 0644 _korean_port/files/data/fonts/Galmuri11-OFL-1.1.md files/data/fonts/Galmuri11-OFL-1.1.md
+
+        grep -F 'parseHyperText(text, mTranslationDataStorage, true)' apps/openmw/mwdialogue/dialoguemanagerimp.cpp
+        grep -F 'if (isValidUtf8WithHangul(raw))' components/esm3/esmreader.cpp
+        grep -F 'utf8BomMode ? std::string_view(line)' components/translation/translation.cpp
+        grep -F 'Galmuri11.ttf' files/data/fonts/MysticCards.omwfont
+        git diff --check
+
+    - name: Load dependency versions
+      shell: bash
+      run: sed '/^\s*#/d; /^\s*$/d' "${{ github.workspace }}/CI/deps_versions.msvc.sh" >> "$GITHUB_ENV"
+
+    - name: Create dependency directories
+      shell: pwsh
+      run: |
+        New-Item -ItemType Directory -Force -Path "${{ github.workspace }}\deps" | Out-Null
+        New-Item -ItemType Directory -Force -Path "${{ github.workspace }}\deps\Qt" | Out-Null
+
+    - name: Download prebuilt vcpkg packages
+      shell: pwsh
+      working-directory: ${{ github.workspace }}/deps
+      run: |
+        $MANIFEST = "vcpkg-x64-windows-2022-${{ env.VCPKG_TAG }}-manifest.txt"
+        curl.exe --fail --retry 3 -L -o "$MANIFEST" "https://gitlab.com/OpenMW/openmw-deps/-/raw/main/windows/$MANIFEST"
+        $lines = Get-Content "$MANIFEST"
+        $URL = $lines[0]
+        $split = -split $lines[1]
+        $HASH = $split[0]
+        $FILE = $split[1]
+        curl.exe --fail --retry 3 -L -o "$FILE" "$URL"
+        $filehash = Get-FileHash "$FILE" -Algorithm SHA512
+        if ($filehash.hash -ne "$HASH") { exit 1 }
+        echo "archive=$FILE" >> $env:GITHUB_ENV
+
+    - name: Extract prebuilt vcpkg packages
+      shell: pwsh
+      working-directory: ${{ github.workspace }}/deps
+      run: 7z x -y -ovcpkg-x64-windows-2022-${{ env.VCPKG_TAG }} $env:archive
+
+    - name: Cache Qt
+      id: qt-cache
+      uses: actions/cache@v5
+      with:
+        path: ${{ github.workspace }}/deps/Qt/${{ env.QT_VER }}/msvc2019_64
+        key: qt-cache-${{ env.QT_VER }}-msvc2019_64-v1
+
+    - name: Download aqt
+      if: steps.qt-cache.outputs.cache-hit != 'true'
+      shell: pwsh
+      working-directory: ${{ github.workspace }}/deps/Qt
+      run: curl.exe --fail --retry 3 -L -o aqt_x64.exe https://github.com/miurahr/aqtinstall/releases/download/v3.1.15/aqt_x64.exe
+
+    - name: Install Qt with aqt
+      if: steps.qt-cache.outputs.cache-hit != 'true'
+      shell: pwsh
+      working-directory: ${{ github.workspace }}/deps/Qt
+      run: .\aqt_x64.exe install-qt windows desktop ${{ env.QT_VER }} win64_msvc2019_64
+
+    - uses: ilammy/msvc-dev-cmd@v1
+
+    - uses: seanmiddleditch/gha-setup-ninja@master
+
+    - name: Configure targeted OpenMW build
+      shell: pwsh
+      run: >
+        cmake
+        -S .
+        -B "${{ github.workspace }}/build"
+        -G Ninja
+        -D CMAKE_BUILD_TYPE=Release
+        -D CMAKE_TOOLCHAIN_FILE="${{ github.workspace }}/deps/vcpkg-x64-windows-2022-${{ env.VCPKG_TAG }}/scripts/buildsystems/vcpkg.cmake"
+        -D CMAKE_PREFIX_PATH="${{ github.workspace }}/deps/Qt/${{ env.QT_VER }}/msvc2019_64"
+        -D LuaJit_INCLUDE_DIR="${{ github.workspace }}/deps/vcpkg-x64-windows-2022-${{ env.VCPKG_TAG }}/installed/x64-windows/include/luajit"
+        -D LuaJit_LIBRARY="${{ github.workspace }}/deps/vcpkg-x64-windows-2022-${{ env.VCPKG_TAG }}/installed/x64-windows/lib/lua51.lib"
+        -D BUILD_BENCHMARKS=OFF
+        -D BUILD_COMPONENTS_TESTS=OFF
+        -D BUILD_OPENMW_TESTS=OFF
+        -D BUILD_OPENCS_TESTS=OFF
+        -D OPENMW_USE_SYSTEM_SQLITE3=OFF
+        -D OPENMW_USE_SYSTEM_YAML_CPP=OFF
+        -D OPENMW_LTO_BUILD=OFF
+        -D CMAKE_EXPORT_COMPILE_COMMANDS=ON
+
+    - name: Build openmw.exe only
+      shell: pwsh
+      run: cmake --build "${{ github.workspace }}/build" --target openmw
+
+    - name: Verify targeted output
+      shell: pwsh
+      run: |
+        if (!(Test-Path "${{ github.workspace }}\build\openmw.exe")) {
+          throw "openmw.exe was not produced"
+        }
+        Get-Item "${{ github.workspace }}\build\openmw.exe" | Format-List Name,Length,LastWriteTime
+
+    - name: Upload targeted openmw.exe
+      uses: actions/upload-artifact@v6
+      with:
+        name: korean-openmw-0.51-targeted-${{ github.sha }}
+        path: ${{ github.workspace }}/build/openmw.exe
+        if-no-files-found: error
