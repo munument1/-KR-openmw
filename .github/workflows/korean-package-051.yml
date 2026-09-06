@@ -1,3 +1,4 @@
+# Trigger KR2 candidate packaging
 name: Korean 0.51 KR2 installer package
 
 on:
