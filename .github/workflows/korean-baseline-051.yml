@@ -1,0 +1,25 @@
+name: Korean 0.51 baseline one-shot
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - .github/workflows/korean-baseline-051.yml
+
+permissions:
+  contents: read
+
+jobs:
+  Korean-Windows-051-Baseline:
+    uses: ./.github/workflows/windows.yml
+    with:
+      image: "2022"
+      msvc: "2022"
+      build-type: Release
+      package: true
+      release: false
+      source_repository: OpenMW/openmw
+      source_ref: openmw-0.51.0
+      korean_overlay: true
+    secrets: inherit
