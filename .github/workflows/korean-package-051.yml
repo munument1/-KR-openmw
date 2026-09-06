@@ -1,0 +1,117 @@
+name: Korean 0.51 KR2 installer package
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - .github/workflows/korean-package-051.yml
+
+permissions:
+  contents: read
+  actions: read
+
+env:
+  TARGET_RUN_ID: "34065368527"
+  TARGET_ARTIFACT: "korean-openmw-0.51-targeted-c6a7845841c5eab8207f45aa86151a045ee6a09b"
+  PACKAGE_NAME: "Morrowind-Korean-OpenMW-0.51.0-KR2-Full.zip"
+
+jobs:
+  Package-Korean-Windows:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout Korean packaging assets
+      uses: actions/checkout@v6
+
+    - name: Download validated targeted openmw.exe
+      env:
+        GH_TOKEN: ${{ github.token }}
+      shell: bash
+      run: |
+        set -euo pipefail
+        mkdir -p targeted
+        gh run download "$TARGET_RUN_ID" \
+          --repo "$GITHUB_REPOSITORY" \
+          --name "$TARGET_ARTIFACT" \
+          --dir targeted
+        test -f targeted/openmw.exe
+
+    - name: Stage BAT installer package
+      shell: bash
+      run: |
+        set -euo pipefail
+        mkdir -p stage/payload/resources/vfs/fonts
+
+        cp packaging/korean/Install-Korean.bat stage/
+        cp packaging/korean/install-korean.ps1 stage/
+        cp packaging/korean/install-korean-config.ps1 stage/
+        cp packaging/korean/korean-fallbacks.cfg stage/
+
+        cp targeted/openmw.exe stage/payload/openmw.exe
+        cp files/data/fonts/DejaVuLGCSansMono.omwfont stage/payload/resources/vfs/fonts/
+        cp files/data/fonts/MysticCards.omwfont stage/payload/resources/vfs/fonts/
+        cp files/data/fonts/Galmuri11.omwfont stage/payload/resources/vfs/fonts/
+        cp files/data/fonts/Galmuri11.ttf stage/payload/resources/vfs/fonts/
+        cp files/data/fonts/Galmuri11-OFL-1.1.md stage/payload/resources/vfs/fonts/
+
+        cat > stage/README-KOREAN.txt <<'EOF'
+        OpenMW 0.51.0 Korean Support KR2 candidate
+
+        1. Install and run official OpenMW 0.51.0 at least once.
+        2. Extract this archive anywhere.
+        3. Double-click Install-Korean.bat.
+        4. The installer finds or asks for the OpenMW installation folder, backs up the existing openmw.exe and Korean-managed font files, installs the Korean engine/font payload, then backs up and updates the user openmw.cfg.
+        5. Install the Korean translation data package separately.
+
+        You do not need to copy openmw.exe manually or edit openmw.cfg manually.
+        The config updater preserves unrelated data=, content=, archives, mod ordering, and the user's existing encoding value.
+        EOF
+
+        exe_sha=$(sha256sum stage/payload/openmw.exe | awk '{print $1}')
+        cat > stage/CI-ID.txt <<EOF
+        Korean OpenMW KR2 installer package
+        Upstream: OpenMW/openmw openmw-0.51.0
+        Targeted build run: ${TARGET_RUN_ID}
+        Targeted artifact: ${TARGET_ARTIFACT}
+        Package commit: ${GITHUB_SHA}
+        payload/openmw.exe sha256: ${exe_sha}
+        EOF
+
+    - name: Validate installer and payload
+      shell: bash
+      run: |
+        set -euo pipefail
+        test "$(xxd -p -l 2 stage/payload/openmw.exe)" = "4d5a"
+        test -f stage/Install-Korean.bat
+        test -f stage/install-korean.ps1
+        test -f stage/install-korean-config.ps1
+        test -f stage/korean-fallbacks.cfg
+        test -f stage/payload/resources/vfs/fonts/MysticCards.omwfont
+        test -f stage/payload/resources/vfs/fonts/Galmuri11.ttf
+        grep -F 'Galmuri11.ttf' stage/payload/resources/vfs/fonts/MysticCards.omwfont
+        grep -F 'fallback=Fonts_Font_0,MysticCards' stage/korean-fallbacks.cfg
+        if grep -E '^\s*(data|content|fallback-archive|encoding)=' stage/korean-fallbacks.cfg; then
+          echo "Unsafe non-fallback config entry found" >&2
+          exit 1
+        fi
+        pwsh -NoLogo -NoProfile -Command "[scriptblock]::Create([IO.File]::ReadAllText('stage/install-korean.ps1')) | Out-Null; [scriptblock]::Create([IO.File]::ReadAllText('stage/install-korean-config.ps1')) | Out-Null"
+
+    - name: Create KR2 candidate archive
+      shell: bash
+      run: |
+        set -euo pipefail
+        mkdir -p dist
+        (cd stage && zip -qr -9 "../dist/$PACKAGE_NAME" .)
+        (cd dist && sha256sum "$PACKAGE_NAME" > "$PACKAGE_NAME.sha256")
+        unzip -tq "dist/$PACKAGE_NAME"
+        cat "dist/$PACKAGE_NAME.sha256"
+
+    - name: Upload KR2 candidate
+      uses: actions/upload-artifact@v6
+      with:
+        name: korean-windows-openmw-0.51.0-kr2-candidate
+        path: |
+          dist/${{ env.PACKAGE_NAME }}
+          dist/${{ env.PACKAGE_NAME }}.sha256
+        if-no-files-found: error
