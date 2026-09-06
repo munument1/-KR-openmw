@@ -1,0 +1,37 @@
+{
+  "cp949_mrk": {
+    "entry_count": 373,
+    "line_count": 373,
+    "path": "Korean Translation.unpacked/Morrowind_Korean_ReTranslation.mrk",
+    "sha256": "27bf3f214da101518829ec450a476f4d81e60553f2e778a16888e42713fcd0b2"
+  },
+  "cp949_top": {
+    "entry_count": 0,
+    "line_count": 0,
+    "path": null,
+    "sha256": null
+  },
+  "marker_occurrences": 10557,
+  "marker_resolution_counts": {
+    "direct_dial": 31,
+    "top": 3665
+  },
+  "marker_unique_phrases": 3696,
+  "mrk_diff_counts": {
+    "added": 3,
+    "changed": 5,
+    "removed": 0
+  },
+  "openmw_mrk": {
+    "entry_count": 376,
+    "line_count": 376,
+    "path": "mods/Morrowind_Korean_ReTranslation/Morrowind_Korean_ReTranslation.mrk",
+    "sha256": "733f8398e9f2db2b8f1608a3f4a02e2d5f717b0d933f05432790b5652eccc91f"
+  },
+  "openmw_top": {
+    "entry_count": 5843,
+    "line_count": 5843,
+    "path": "mods/Morrowind_Korean_ReTranslation/Morrowind_Korean_ReTranslation.top",
+    "sha256": "b87c1501a1402f34b77681631eed5f743815d34d9a50652a2fb856a52094e853"
+  }
+}

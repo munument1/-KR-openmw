@@ -347,22 +347,6 @@
     "openmw": "네, 모두 좋은 표본이에요. 이제 아지라는 @보고서를 써서# 마법사 길드의 숙련자가 될 수 있어요. 답례로 가져갈 물약도 만들어 두었어요. 아지라는 아직 대단한 연금술사는 아니지만, 이 물약들이 당신에게 쓸모 있을 거라고 생각해요."
   },
   {
-    "cp949": "아지라의 보고서를 끝내려면 발광 루술라, 보랏빛 코프리누스, 서투른 자의 파멸, 히파 파시아 표본이 필요해요. 이 버섯들은 모두 비터 코스트에서 찾을 수 있어요. 가장 쉬운 길은 오다이 강을 따라 남쪽으로 가다가 강을 가로지르는 나무다리를 찾는 거예요. 거기서 강을 나와 언덕을 넘어 서쪽으로 이어지는 길을 찾으세요.",
-    "dial_cp949": "버섯",
-    "dial_openmw": "버섯",
-    "key": [
-      3431,
-      "20728261851736471",
-      6
-    ],
-    "kind": "info_response",
-    "markers": [
-      "히파 파시아",
-      "쓰라린 해안"
-    ],
-    "openmw": "아지라의 보고서를 끝내려면 발광 루술라, 보랏빛 코프리누스, 서투른 자의 파멸, @히파 파시아# 표본이 필요해요. 이 버섯들은 모두 @쓰라린 해안#에서 찾을 수 있어요. 가장 쉬운 길은 오다이 강을 따라 남쪽으로 가다가 강을 가로지르는 나무다리를 찾는 거예요. 거기서 강을 나와 언덕을 넘어 서쪽으로 이어지는 길을 찾으세요."
-  },
-  {
     "cp949": "아지라는 네가 추방당했다고 들었다. 아지라는 대마법사에게 사죄해야 한다고 말하라는 지시를 받았지만, 여기 마법사들은 할 일도 많고 머릿속도 복잡하다고 아지라는 말해 주겠다. 곧 라니스 아트리스가 네 추방 사실을 잊을 테니, 그러면 아지라가 다시 너와 이야기할 수 있다.",
     "dial_cp949": "꽃",
     "dial_openmw": "꽃",
@@ -852,20 +836,5 @@
       "포야다"
     ],
     "openmw": "아지라는 이제 황금 @카네트,# @돌꽃 꽃잎#, 버드나무 꽃밥, @헤더# 네 종류의 꽃 표본을 원한다. 이들은 아마야 호숫가에서 찾을 수 있다. 발모라 남쪽으로 나가 문모스 요새를 지나 동쪽으로 향하고, 펠라기아드로 가는 길에서 @포야다# 마마이아를 건너야 한다. 포야다를 벗어난 뒤 아마야 호수 북쪽 기슭을 따라가는 수란행 도로를 타야 한다."
-  },
-  {
-    "cp949": {
-      "raw_sha256": "52889c77137ae86fb02f8de6d07ef4f6436091e473a8fcb5a507880b59f43b16",
-      "record_index": 47971,
-      "scdt_sha256": "3f6d0f2d5c62efec23b066ec35c47dea4213ca14d537cddca267e7aa12d2bb24",
-      "sctx": ""
-    },
-    "openmw": {
-      "raw_sha256": "06692089c630142af1f7ccb2fa2356b7980747c7acb428f1d7c9bc4a2cdcdc87",
-      "record_index": 48013,
-      "scdt_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "sctx": "begin Sleepers\r\n\r\nshort dream\r\n;when dream happens\r\nshort doOnce\r\n;do it only once each time player goes to town\r\n\r\n;script for Dreams sent by Dagoth Ur and Sixth House cultists attacking when sleeping around certain locations\r\n;this will have to be a global that runs all the time\r\n;doug just rewrote this script to prevent multiple attacks and because it was a crazy-long kinda slow to run as a global\r\n\r\n;*** DREAMS *** : series of four dreams, each occurring only once, before PC kills Dagoth Gares at Ilunibi Shrine\r\n;check for sleeping in certain areas, give dream message\r\n\r\n\r\nif ( GetPCSleep == 0 )\r\n\treturn\r\nendif\r\n\r\nSet dream to 0\r\n\r\nif ( GetPCCell \"Balmora\" == 1 )\r\n\tSet dream to 1\r\nendif\r\n\r\nif ( GetPCCell \"Ald-ruhn\" == 1 )\r\n\tSet dream to 2\r\nendif\r\n\r\nif ( GetPCCell \"Vivec\" == 1 )\r\n\tSet dream to 3\r\nendif\r\n\r\nif ( dream == 0 )\r\n\tSet doOnce to 0\r\n\t;this makes sure you have to leave the city and come back for another attack to occur\r\n\treturn\r\nendif\r\n\r\nAddTopic \"불길한 꿈\"\r\n;add this topic, doesn't matter if you do it over and over\r\n\r\n\r\n\r\n;THE FIRST DREAM...\r\n\r\nif ( GetJournalIndex A1_2_AntabolisInformant >= 10 )\r\n\tif ( GetJournalIndex A1_Dreams < 1 )\r\n\t\tWakeUpPC\r\n\t\tMessageBox \"불길한 꿈을 꾸었습니다. 기억나는 것은 한 장면뿐입니다. 황금 가면을 쓴 키 큰 인물이 혼인 잔치라도 벌이듯 당신을 죽은 자들 사이로 이끌었습니다. 수많은 목소리가 들렸지만 어느 입술도 움직이지 않았습니다. 숨을 쉬려 애썼지만 가슴은 미동도 하지 않았습니다. 그 인물은 죽은 자들 사이를 지나며 살아 있는 사람에게 하듯 웃고 농담하며 하나하나 말을 걸었지만, 아무도 대답하지 않았습니다. 소리치려 했으나 숨이 나오지 않았고, 혀만 헛되이 떨렸습니다.\" \"확인\"\r\n\t\tJournal A1_Dreams 1\r\n\t\treturn\r\n\tendif\r\nendif\r\n\r\n\r\n\r\n;THE SECOND DREAM...\r\n\r\nif ( GetJournalIndex A1_6_AddhiranirrInformant >= 45 )\r\n\tif ( GetJournalIndex A1_Dreams < 5 )\r\n\t\tWakeUpPC\r\n\t\tMessageBox \"꿈속에서 황금 가면을 쓴 키 큰 인물이 당신을 맞으며 말했습니다. '주인님의 집에는 방이 많다. 안심하라. 내가 너를 원수들의 손에서 구해 냈으니.' 당신은 죽은 듯했고, 촛불이 밝혀진 탁자 위에 누운 자신의 모습을 볼 수 있었습니다. 그러나 당신이 손을 뻗어 그 몸을 만지자, 그것은 숨을 들이쉬고 눈을 뜨더니 탁자에서 일어났습니다. 그 순간 방은 사라지고 온 세상이 빛으로 가득 찼으며, 당신은 잠에서 깨어났습니다.\" \"확인\"\r\n\t\tJournal A1_Dreams 5\r\n\t\treturn\r\n\tendif\r\nendif\r\n\r\n\r\n\r\n;THE THIRD DREAM\r\n\r\nif ( GetJournalIndex A1_10_MehraMilo >= 50 )\r\n\tif ( GetJournalIndex A1_Dreams < 10 )\r\n\t\tWakeUpPC\r\n\t\tMessageBox \"황금 가면을 쓴 키 큰 인물이 말을 거는 꿈을 꾸었지만, 단 한마디도 알아들을 수 없었습니다. 그는 미소 지으며 다정해 보였지만, 손을 뻗어 당신을 만지려 하자 공포가 밀려왔습니다. 달아나려 해도 몸은 움직이지 않았고, 비명을 지르려 해도 소리가 나오지 않았습니다. 그는 계속 웃으며 말했고, 당신은 그가 어떤 주문을 걸고 있다고 확신했습니다. 잠에서 깨어난 뒤에는 꿈이 어떻게 끝났는지 기억나지 않았습니다.\" \"확인\"\r\n\t\tJournal A1_Dreams 10\r\n\t\treturn\r\n\tendif\r\nendif\r\n\r\n\r\n\r\n\r\n;THE FOURTH DREAM\r\n\r\nif ( GetJournalIndex A1_11_ZainsubaniInformant >= 50 )\r\n\tif ( GetJournalIndex A1_Dreams < 15 )\r\n\t\tWakeUpPC\r\n\t\tMessageBox \"꿈속에서 황금 가면을 쓴 키 큰 인물이 당신에게 말했다. '인도릴의 네레바르 경이여, 하이 레스데이니아! 오래도록 잊혔으나 새로이 벼려졌도다! 셋이 그대를 속였고, 셋이 그대를 배신했다! 그대가 배신한 하나는 세 배로 진실했도다! 보린 다고스 경, 다고스 우르! 굳건한 가신이자 충실한 벗이 그대를 부르니, 붉은 산에 오르라! 붉은 산 아래에서 다시 한번 속박을 끊고 저주받은 허물을 벗어, 모로윈드에서 느와를 쓸어 내라!'\" \"확인\"\r\n\t\tJournal A1_Dreams 15\r\n\t\treturn\r\n\tendif\r\nendif\r\n\r\n\r\n\r\n\r\n;SIXTH HOUSE ATTACKERS\r\n;these occur AFTER the PC has fought Dagoth Gares\r\n\r\n\r\n\r\n;NO DUPLICATE ATTACKS UNTIL YOU LEAVE AND RETURN\r\n\r\nif ( doOnce == 1 )\r\n\treturn\r\nendif\r\n\r\n;NO ATTACKS WHEN GAME IS OVER\r\n\r\nif ( GetJournalIndex C3_DestroyDagoth >= 50 )\r\n\treturn\r\nendif\r\n\r\n;NO ATTACKS IF YOU HAVEN'T GOTTEN THIS FAR\r\n\r\nif ( GetJournalIndex A2_2_6thHouse < 50 )\r\n\treturn\r\nendif\r\n\r\nSet doOnce to 1\r\n\r\n\r\n\r\n\r\n;BALMORA SIXTH HOUSE ATTACKERS (dream === 1)\r\n\r\nif ( dream == 1 )\r\n\tif ( GetDeadCount \"Dagoth Fovon\" == 0 )\r\n\t\tWakeUpPC\r\n\t\tMessageBox \"잠에서 깨어납니다. 무언가가 들리고, 가까이에 누군가 있다는 기척이 느껴집니다....\", \"확인\"\r\n\t\tJournal A1_SleepersAwake 3\r\n\t\tAddTopic \"잠든 사이 습격당함\"\r\n\t\tPlaceAtPC Ash_Zombie 1 128 1\r\n\tendif\r\nendif\r\n\r\n;ALD-RUHN SIXTH HOUSE ATTACKERS (dream == 2)\r\n\r\nif ( dream == 2 )\r\n\tif ( GetDeadCount \"Hanarai Assutlanipal\" == 0 )\r\n\t\tWakeUpPC\r\n\t\tMessageBox \"잠에서 깨어납니다. 무언가가 들리고, 가까이에 누군가 있다는 기척이 느껴집니다....\", \"확인\"\r\n\t\tJournal A1_SleepersAwake 3\r\n\t\tAddTopic \"잠든 사이 습격당함\"\r\n\t\tPlaceAtPC Ash_Zombie 1 128 1\r\n\tendif\r\nendif\r\n\r\n;VIVEC SIXTH HOUSE ATTACKERS (dream == 3)\r\n\r\nif ( dream == 3 )\r\n\tif ( GetDeadCount \"Dagoth_Hlevul\" == 0 )\r\n\t\tWakeUpPC\r\n\t\tMessageBox \"잠에서 깨어납니다. 무언가가 들리고, 가까이에 누군가 있다는 기척이 느껴집니다....\", \"확인\"\r\n\t\tJournal A1_SleepersAwake 3\r\n\t\tAddTopic \"잠든 사이 습격당함\"\r\n\t\tPlaceAtPC Ash_Zombie 1 128 1\r\n\tendif\r\nendif\r\n\r\n;whew!\r\n\r\nEnd\r\n"
-    },
-    "script": "Sleepers"
   }
 ]
