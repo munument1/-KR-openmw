@@ -1,0 +1,76 @@
+name: Extract KR1 Gameplay Baseline
+
+on:
+  push:
+    branches:
+      - analysis/extract-kr1-gameplay-baseline
+    paths:
+      - .github/workflows/extract-kr1-gameplay-baseline.yml
+
+permissions:
+  contents: write
+
+jobs:
+  extract:
+    runs-on: ubuntu-latest
+    env:
+      BRANCH: analysis/extract-kr1-gameplay-baseline
+      OPENMW_TAG: openmw-0.51.0-kr1
+      OPENMW_ASSET: Morrowind-Korean-OpenMW-0.51.0-KR1-Full.zip
+      CP949_REPO: munument1/Morrowind-CP949
+      CP949_TAG: v1.0.7-rc6-classic-cp949-pre1
+      CP949_ASSET: Morrowind_Korean_ReTranslation_v1.0.7-rc6_Classic_CP949.zip
+    steps:
+      - name: Check out analysis branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.BRANCH }}
+          fetch-depth: 0
+
+      - name: Download release assets
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          root="$RUNNER_TEMP/kr1-gameplay-baseline"
+          mkdir -p "$root/openmw" "$root/cp949" "$root/openmw-unpacked" "$root/cp949-unpacked"
+          gh release download "$OPENMW_TAG" --repo "$GITHUB_REPOSITORY" --pattern "$OPENMW_ASSET" --dir "$root/openmw"
+          gh release download "$CP949_TAG" --repo "$CP949_REPO" --pattern "$CP949_ASSET" --dir "$root/cp949"
+          unzip -q "$root/openmw/$OPENMW_ASSET" -d "$root/openmw-unpacked"
+          unzip -q "$root/cp949/$CP949_ASSET" -d "$root/cp949-unpacked"
+          printf '%s\n' "$root" > "$RUNNER_TEMP/kr1-root.txt"
+
+      - name: Extract and compare gameplay data
+        shell: bash
+        run: |
+          set -euo pipefail
+          root="$(cat "$RUNNER_TEMP/kr1-root.txt")"
+          rm -rf analysis/kr1-gameplay-baseline
+          mkdir -p analysis/kr1-gameplay-baseline
+          python3 tools/extract_release_gameplay_baseline.py \
+            --openmw "$root/openmw-unpacked" \
+            --cp949 "$root/cp949-unpacked" \
+            --out analysis/kr1-gameplay-baseline
+          {
+            echo "OpenMW release asset: $OPENMW_ASSET"
+            echo "CP949 release asset: $CP949_ASSET"
+            echo
+            echo "OpenMW ZIP entries:"
+            find "$root/openmw-unpacked" -type f -printf '%P\n' | sort
+            echo
+            echo "CP949 ZIP entries:"
+            find "$root/cp949-unpacked" -type f -printf '%P\n' | sort
+          } > analysis/kr1-gameplay-baseline/release_inventory.txt
+
+      - name: Commit extraction results
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add analysis/kr1-gameplay-baseline
+          if ! git diff --cached --quiet; then
+            git commit -m "Record KR1 gameplay baseline extraction [skip ci]"
+            git push origin "HEAD:$BRANCH"
+          fi
