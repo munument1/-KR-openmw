@@ -2,7 +2,7 @@
 import argparse
 import hashlib
 import json
-import os
+import re
 import struct
 from collections import Counter, defaultdict
 from pathlib import Path
@@ -162,6 +162,40 @@ def dump_json(path, obj):
     path.write_text(json.dumps(obj, ensure_ascii=False, indent=2, sort_keys=True), encoding="utf-8")
 
 
+def strip_markers(text: str) -> str:
+    return re.sub(r"@([^#]*)#", r"\1", text)
+
+
+def marker_phrases(text: str):
+    return re.findall(r"@([^#]+)#", text)
+
+
+def load_sidecar(root: Path, ext: str, mode: str):
+    p = find_file(root, ext, "ReTranslation") or find_file(root, ext)
+    if not p:
+        return {"path": None, "sha256": None, "line_count": 0, "entries": []}
+    raw = p.read_bytes()
+    text = decode_text(raw, mode)
+    entries = []
+    for line_no, line in enumerate(text.splitlines(), 1):
+        if not line:
+            continue
+        if "\t" in line:
+            key, value = line.split("\t", 1)
+        else:
+            key, value = line, ""
+        entries.append({"line": line_no, "key": key, "value": value})
+    return {"path": str(p.relative_to(root)), "sha256": sha256(raw), "line_count": len(text.splitlines()), "entries": entries}
+
+
+def mapping(side):
+    out = {}
+    for e in side["entries"]:
+        if e["key"] and e["value"] and e["key"] not in out:
+            out[e["key"]] = e["value"]
+    return out
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--openmw", required=True)
@@ -189,6 +223,12 @@ def main():
 
     omw = build_model(openmw_esp, "openmw")
     cp = build_model(cp949_esp, "cp949")
+    omw_top = load_sidecar(openmw_root, ".top", "openmw")
+    omw_mrk = load_sidecar(openmw_root, ".mrk", "openmw")
+    cp_top = load_sidecar(cp949_root, ".top", "cp949")
+    cp_mrk = load_sidecar(cp949_root, ".mrk", "cp949")
+    top_map = mapping(omw_top)
+    mrk_map = mapping(omw_mrk)
 
     dial_diffs = []
     for idx in range(max(len(omw["dials"]), len(cp["dials"]))):
@@ -203,7 +243,10 @@ def main():
     cp_info = {info_key(i): i for i in cp["infos"]}
     info_logic = []
     info_text = []
+    marker_only = []
+    content_changed = []
     known = []
+    known_marker_only = []
     for key in sorted(set(omw_info) | set(cp_info), key=lambda x:(x[0],x[2],x[1])):
         a, b = omw_info.get(key), cp_info.get(key)
         if a is None or b is None:
@@ -218,9 +261,13 @@ def main():
             info_logic.append(row)
             if known_hit(row): known.append(row)
         if text_changed:
-            row = {"key":key,"kind":"info_response","dial_openmw":omw["dials"][a["dial_index"]]["name"] if a["dial_index"] >= 0 else None,"dial_cp949":cp["dials"][b["dial_index"]]["name"] if b["dial_index"] >= 0 else None,"openmw":a["response"],"cp949":b["response"]}
+            marker_only_change = strip_markers(a["response"]) == b["response"] and bool(marker_phrases(a["response"]))
+            row = {"key":key,"kind":"marker_only" if marker_only_change else "info_response","dial_openmw":omw["dials"][a["dial_index"]]["name"] if a["dial_index"] >= 0 else None,"dial_cp949":cp["dials"][b["dial_index"]]["name"] if b["dial_index"] >= 0 else None,"openmw":a["response"],"cp949":b["response"],"markers":marker_phrases(a["response"])}
             info_text.append(row)
-            if known_hit(row): known.append(row)
+            (marker_only if marker_only_change else content_changed).append(row)
+            if known_hit(row):
+                known.append(row)
+                if marker_only_change: known_marker_only.append(row)
 
     script_diffs = []
     for sid in sorted(set(omw["scripts"]) | set(cp["scripts"])):
@@ -233,30 +280,62 @@ def main():
     for row in dial_diffs:
         if known_hit(row): known.append(row)
 
+    dial_names = {d["name"] for d in omw["dials"]}
+    marker_counter = Counter()
+    for i in omw["infos"]:
+        marker_counter.update(marker_phrases(i["response"]))
+    marker_resolution = []
+    resolution_counts = Counter()
+    for phrase, count in marker_counter.most_common():
+        if phrase in top_map:
+            target = top_map[phrase]
+            method = "top"
+        elif phrase in dial_names:
+            target = phrase
+            method = "direct_dial"
+        else:
+            target = None
+            method = "unresolved"
+        resolution_counts[method] += 1
+        marker_resolution.append({"phrase":phrase,"occurrences":count,"method":method,"target":target,"mrk_keyword":mrk_map.get(target) if target else None})
+
+    omw_mrk_map = mapping(omw_mrk)
+    cp_mrk_map = mapping(cp_mrk)
+    mrk_added = {k:v for k,v in omw_mrk_map.items() if k not in cp_mrk_map}
+    mrk_removed = {k:v for k,v in cp_mrk_map.items() if k not in omw_mrk_map}
+    mrk_changed = {k:{"openmw":omw_mrk_map[k],"cp949":cp_mrk_map[k]} for k in omw_mrk_map.keys() & cp_mrk_map.keys() if omw_mrk_map[k] != cp_mrk_map[k]}
+
+    sidecar_summary = {
+        "openmw_top":{"path":omw_top["path"],"sha256":omw_top["sha256"],"line_count":omw_top["line_count"],"entry_count":len(omw_top["entries"])},
+        "openmw_mrk":{"path":omw_mrk["path"],"sha256":omw_mrk["sha256"],"line_count":omw_mrk["line_count"],"entry_count":len(omw_mrk["entries"])},
+        "cp949_top":{"path":cp_top["path"],"sha256":cp_top["sha256"],"line_count":cp_top["line_count"],"entry_count":len(cp_top["entries"])},
+        "cp949_mrk":{"path":cp_mrk["path"],"sha256":cp_mrk["sha256"],"line_count":cp_mrk["line_count"],"entry_count":len(cp_mrk["entries"])},
+        "mrk_diff_counts":{"added":len(mrk_added),"removed":len(mrk_removed),"changed":len(mrk_changed)},
+        "marker_resolution_counts":dict(resolution_counts),
+        "marker_unique_phrases":len(marker_counter),
+        "marker_occurrences":sum(marker_counter.values()),
+    }
+
     summary = {
         "status":"OK",
         "openmw":{"esp":inventory["openmw_esp"],"sha256":omw["sha256"],"size":omw["size"],"dials":len(omw["dials"]),"infos":len(omw["infos"]),"scripts":len(omw["scripts"])},
         "cp949":{"esp":inventory["cp949_esp"],"sha256":cp["sha256"],"size":cp["size"],"dials":len(cp["dials"]),"infos":len(cp["infos"]),"scripts":len(cp["scripts"])},
-        "diff_counts":{"dial":len(dial_diffs),"info_logic":len(info_logic),"info_response":len(info_text),"script_sctx":len(script_diffs),"known_regression_hits":len(known)},
+        "diff_counts":{"dial":len(dial_diffs),"info_logic":len(info_logic),"info_response":len(info_text),"marker_only_response":len(marker_only),"content_changed_response":len(content_changed),"script_sctx":len(script_diffs),"known_regression_hits":len(known),"known_marker_only_hits":len(known_marker_only)},
+        "sidecars":sidecar_summary,
     }
     dump_json(out / "summary.json", summary)
     dump_json(out / "dial_diffs.json", dial_diffs)
     dump_json(out / "info_logic_diffs.json", info_logic)
     dump_json(out / "info_response_diffs.json", info_text)
+    dump_json(out / "marker_only_diffs.json", marker_only)
+    dump_json(out / "content_changed_diffs.json", content_changed)
     dump_json(out / "script_diffs.json", script_diffs)
     dump_json(out / "known_regressions.json", known)
-
-    for label, root in (("openmw", openmw_root), ("cp949", cp949_root)):
-        side = out / f"{label}_sidecars"
-        side.mkdir(exist_ok=True)
-        for ext in (".top", ".mrk", ".cel"):
-            for p in root.rglob(f"*{ext}"):
-                try:
-                    txt = decode_text(p.read_bytes(), "openmw" if label == "openmw" else "cp949")
-                except Exception:
-                    continue
-                safe = str(p.relative_to(root)).replace("/", "__").replace("\\", "__")
-                (side / f"{safe}.txt").write_text(txt, encoding="utf-8")
+    dump_json(out / "known_marker_only.json", known_marker_only)
+    dump_json(out / "sidecar_summary.json", sidecar_summary)
+    dump_json(out / "marker_resolution.json", marker_resolution)
+    dump_json(out / "mrk_diffs.json", {"added":mrk_added,"removed":mrk_removed,"changed":mrk_changed})
+    dump_json(out / "openmw_top_entries.json", omw_top["entries"])
 
 
 if __name__ == "__main__":
