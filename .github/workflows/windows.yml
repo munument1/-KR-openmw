@@ -20,6 +20,18 @@ on:
       release:
         default: false
         type: boolean
+      source_repository:
+        description: Optional source repository to build instead of the caller repository
+        default: ""
+        type: string
+      source_ref:
+        description: Ref to check out from source_repository
+        default: ""
+        type: string
+      korean_overlay:
+        description: Apply the Korean runtime patchset and Korean font/config assets before building
+        default: false
+        type: boolean
 
 jobs:
   Windows:
@@ -35,7 +47,49 @@ jobs:
       if: ${{ inputs.package }}
       run: choco install nsis
 
-    - uses: actions/checkout@v6
+    - name: Checkout caller source
+      if: ${{ inputs.source_repository == '' }}
+      uses: actions/checkout@v6
+
+    - name: Checkout external source
+      if: ${{ inputs.source_repository != '' }}
+      uses: actions/checkout@v6
+      with:
+        repository: ${{ inputs.source_repository }}
+        ref: ${{ inputs.source_ref }}
+        fetch-depth: 0
+
+    - name: Checkout Korean port assets
+      if: ${{ inputs.korean_overlay }}
+      uses: actions/checkout@v6
+      with:
+        repository: ${{ github.repository }}
+        ref: ${{ github.sha }}
+        path: _korean_port
+        fetch-depth: 1
+
+    - name: Apply Korean runtime patchset and assets
+      if: ${{ inputs.korean_overlay }}
+      shell: bash
+      run: |
+        set -euo pipefail
+        for patch in _korean_port/korean/patches/*.patch; do
+          echo "Checking $patch"
+          git apply --check "$patch"
+          git apply "$patch"
+        done
+
+        install -m 0644 _korean_port/files/data/fonts/DejaVuLGCSansMono.omwfont files/data/fonts/DejaVuLGCSansMono.omwfont
+        install -m 0644 _korean_port/files/data/fonts/MysticCards.omwfont files/data/fonts/MysticCards.omwfont
+        install -m 0644 _korean_port/files/data/fonts/Galmuri11.omwfont files/data/fonts/Galmuri11.omwfont
+        install -m 0644 _korean_port/files/data/fonts/Galmuri11.ttf files/data/fonts/Galmuri11.ttf
+        install -m 0644 _korean_port/files/data/fonts/Galmuri11-OFL-1.1.md files/data/fonts/Galmuri11-OFL-1.1.md
+
+        grep -F 'parseHyperText(text, mTranslationDataStorage, true)' apps/openmw/mwdialogue/dialoguemanagerimp.cpp
+        grep -F 'if (isValidUtf8WithHangul(raw))' components/esm3/esmreader.cpp
+        grep -F 'utf8BomMode ? std::string_view(line)' components/translation/translation.cpp
+        grep -F 'Galmuri11.ttf' files/data/fonts/MysticCards.omwfont
+        git diff --check
 
     - shell: bash
       name: Add deps version env to GITHUB_ENV, stripping comments
@@ -166,6 +220,13 @@ jobs:
         cpack --config "${{ github.workspace }}/build/CPackConfig.cmake" -B "${{ github.workspace }}/install"
         rm -r -Force "${{ github.workspace }}/install/_CPack_Packages"
 
+    - name: Add Korean config updater to package artifacts
+      if: ${{ inputs.package && inputs.korean_overlay }}
+      shell: pwsh
+      run: |
+        New-Item -ItemType Directory -Path "${{ github.workspace }}\install\KoreanConfig" -Force | Out-Null
+        Copy-Item "${{ github.workspace }}\_korean_port\packaging\korean\*" "${{ github.workspace }}\install\KoreanConfig" -Recurse -Force
+
     - name: Remove extra pdb files
       if: ${{ ! inputs.package }}
       shell: bash
@@ -178,8 +239,8 @@ jobs:
       env:
         GH_TOKEN: ${{ github.token }}
       run: |
-        job_url=$(gh run --repo ${{ github.repository }} view ${{ github.run_id }} --json jobs --jq '.jobs[] | select(.name == "windows-${{ inputs.msvc }}") | .url')
-        printf "Ref ${{ github.ref }}\nJob ${job_url}\nCommit ${{ github.sha }}\n" > install/CI-ID.txt
+        job_url=$(gh run --repo ${{ github.repository }} view ${{ github.run_id }} --json jobs --jq '.jobs[] | select(.name == "windows-${{ inputs.image }}") | .url')
+        printf "Ref ${{ github.ref }}\nJob ${job_url}\nCommit ${{ github.sha }}\nSource repository ${{ inputs.source_repository }}\nSource ref ${{ inputs.source_ref }}\nKorean overlay ${{ inputs.korean_overlay }}\n" > install/CI-ID.txt
         cp install/CI-ID.txt pdb/CI-ID.txt
         cp install/CI-ID.txt SymStore/CI-ID.txt
 
