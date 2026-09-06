@@ -72,23 +72,63 @@ if ($insideManagedBlock) {
     throw "Unclosed Korean managed block detected in $ConfigPath. Backup created at $backupPath"
 }
 
-while ($outputLines.Count -gt 0 -and [string]::IsNullOrWhiteSpace($outputLines[$outputLines.Count - 1])) {
-    $outputLines.RemoveAt($outputLines.Count - 1)
-}
-
-if ($outputLines.Count -gt 0) {
-    [void]$outputLines.Add("")
-}
-
-[void]$outputLines.Add($beginMarker)
+$managedBlock = New-Object 'System.Collections.Generic.List[string]'
+[void]$managedBlock.Add($beginMarker)
 foreach ($line in $payloadLines) {
-    [void]$outputLines.Add($line)
+    [void]$managedBlock.Add($line)
 }
-[void]$outputLines.Add($endMarker)
+[void]$managedBlock.Add($endMarker)
 
-[System.IO.File]::WriteAllLines($ConfigPath, $outputLines, $utf8NoBom)
+$encodingIndex = -1
+for ($i = $outputLines.Count - 1; $i -ge 0; $i--) {
+    if ($outputLines[$i] -match '^\s*encoding\s*=') {
+        $encodingIndex = $i
+        break
+    }
+}
+
+$finalLines = New-Object 'System.Collections.Generic.List[string]'
+if ($encodingIndex -ge 0) {
+    for ($i = 0; $i -lt $encodingIndex; $i++) {
+        [void]$finalLines.Add($outputLines[$i])
+    }
+
+    while ($finalLines.Count -gt 0 -and [string]::IsNullOrWhiteSpace($finalLines[$finalLines.Count - 1])) {
+        $finalLines.RemoveAt($finalLines.Count - 1)
+    }
+    if ($finalLines.Count -gt 0) {
+        [void]$finalLines.Add("")
+    }
+    foreach ($line in $managedBlock) {
+        [void]$finalLines.Add($line)
+    }
+
+    for ($i = $encodingIndex; $i -lt $outputLines.Count; $i++) {
+        [void]$finalLines.Add($outputLines[$i])
+    }
+} else {
+    while ($outputLines.Count -gt 0 -and [string]::IsNullOrWhiteSpace($outputLines[$outputLines.Count - 1])) {
+        $outputLines.RemoveAt($outputLines.Count - 1)
+    }
+    foreach ($line in $outputLines) {
+        [void]$finalLines.Add($line)
+    }
+    if ($finalLines.Count -gt 0) {
+        [void]$finalLines.Add("")
+    }
+    foreach ($line in $managedBlock) {
+        [void]$finalLines.Add($line)
+    }
+}
+
+[System.IO.File]::WriteAllLines($ConfigPath, $finalLines, $utf8NoBom)
 
 Write-Host "Updated OpenMW Korean fallback configuration."
 Write-Host "Config : $ConfigPath"
 Write-Host "Backup : $backupPath"
 Write-Host "Managed fallback keys: $($managedKeys.Count)"
+if ($encodingIndex -ge 0) {
+    Write-Host "Managed block inserted immediately before the final encoding= line."
+} else {
+    Write-Host "Managed block appended at the end because no encoding= line exists."
+}
