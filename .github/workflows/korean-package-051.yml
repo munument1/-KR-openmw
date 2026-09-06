@@ -1,4 +1,4 @@
-# Trigger KR2 candidate packaging
+# Publish KR2 release
 name: Korean 0.51 KR2 installer package
 
 on:
@@ -9,7 +9,7 @@ on:
       - .github/workflows/korean-package-051.yml
 
 permissions:
-  contents: read
+  contents: write
   actions: read
 
 env:
@@ -57,7 +57,7 @@ jobs:
         cp files/data/fonts/Galmuri11-OFL-1.1.md stage/payload/resources/vfs/fonts/
 
         cat > stage/README-KOREAN.txt <<'EOF'
-        OpenMW 0.51.0 Korean Support KR2 candidate
+        OpenMW 0.51.0 Korean Support KR2
 
         1. Install and run official OpenMW 0.51.0 at least once.
         2. Extract this archive anywhere.
@@ -98,7 +98,7 @@ jobs:
         fi
         pwsh -NoLogo -NoProfile -Command "[scriptblock]::Create([IO.File]::ReadAllText('stage/install-korean.ps1')) | Out-Null; [scriptblock]::Create([IO.File]::ReadAllText('stage/install-korean-config.ps1')) | Out-Null"
 
-    - name: Create KR2 candidate archive
+    - name: Create KR2 archive
       shell: bash
       run: |
         set -euo pipefail
@@ -108,11 +108,48 @@ jobs:
         unzip -tq "dist/$PACKAGE_NAME"
         cat "dist/$PACKAGE_NAME.sha256"
 
-    - name: Upload KR2 candidate
+    - name: Upload KR2 workflow artifact
       uses: actions/upload-artifact@v6
       with:
-        name: korean-windows-openmw-0.51.0-kr2-candidate
+        name: korean-windows-openmw-0.51.0-kr2
         path: |
           dist/${{ env.PACKAGE_NAME }}
           dist/${{ env.PACKAGE_NAME }}.sha256
         if-no-files-found: error
+
+    - name: Publish KR2 release
+      uses: softprops/action-gh-release@v2
+      with:
+        tag_name: openmw-0.51.0-kr2
+        target_commitish: ${{ github.sha }}
+        name: OpenMW 0.51.0 Korean Support KR2
+        draft: false
+        prerelease: false
+        files: |
+          dist/${{ env.PACKAGE_NAME }}
+          dist/${{ env.PACKAGE_NAME }}.sha256
+        body: |
+          # OpenMW 0.51.0 Korean Support KR2
+
+          OpenMW 0.51.0에서 모로윈드 한국어 패치를 사용하기 위한 한국어 런타임 지원 패키지입니다.
+
+          ## KR2 변경점
+
+          - `Install-Korean.bat` 통합 설치기 추가
+          - BAT 한 번으로 한국어 `openmw.exe`와 폰트 파일 설치
+          - 기존 `openmw.exe`와 관리 대상 폰트 파일 자동 백업
+          - 사용자 `openmw.cfg` 자동 백업 및 한국어 fallback 갱신
+          - `data=`, `content=`, 모드 순서 및 기존 `encoding=` 값 보존
+          - 한국어 fallback 블록을 마지막 `encoding=` 항목 바로 앞에 배치
+          - 전체 OpenMW 재빌드 대신 검증된 `openmw.exe` 타깃 빌드 사용
+
+          ## 설치
+
+          1. 공식 OpenMW 0.51.0을 설치하고 한 번 실행합니다.
+          2. 이 릴리즈의 ZIP 파일을 원하는 위치에 압축 해제합니다.
+          3. `Install-Korean.bat`을 실행합니다.
+          4. 한국어 번역 데이터 패키지는 별도로 설치합니다.
+
+          전역 `encoding=utf8` 설정은 필요하지 않습니다.
+
+          한국어 번역 데이터(ESP / CEL / MRK / TOP / l10n)는 엔진 패키지와 별도 배포됩니다.
