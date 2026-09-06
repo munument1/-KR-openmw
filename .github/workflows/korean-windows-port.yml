@@ -1,0 +1,128 @@
+name: Korean Windows upstream port
+
+on:
+  workflow_dispatch:
+    inputs:
+      upstream_ref:
+        description: OpenMW upstream branch, tag, or commit to port (for example openmw-0.51.0)
+        required: true
+        type: string
+      release_tag:
+        description: Korean release tag / bundle label (for example openmw-0.51.0-kr2)
+        required: true
+        type: string
+      publish_release:
+        description: Create or update a draft prerelease with the generated bundle
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: write
+
+env:
+  MSVC_VERSION: "2022"
+
+jobs:
+  Build-Korean-Windows:
+    uses: ./.github/workflows/windows.yml
+    with:
+      image: "2022"
+      msvc: "2022"
+      build-type: Release
+      package: true
+      release: false
+      source_repository: OpenMW/openmw
+      source_ref: ${{ inputs.upstream_ref }}
+      korean_overlay: true
+    secrets: inherit
+
+  Bundle-Korean-Windows:
+    needs: Build-Korean-Windows
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download packaged Windows artifact
+        uses: actions/download-artifact@v6
+        with:
+          name: openmw-windows-${{ env.MSVC_VERSION }}-${{ github.sha }}
+          path: package
+
+      - name: Validate Korean package contents
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f package/CI-ID.txt
+          test -f package/KoreanConfig/Install-Korean-Config.bat
+          test -f package/KoreanConfig/install-korean-config.ps1
+          test -f package/KoreanConfig/korean-fallbacks.cfg
+          find package -maxdepth 2 -type f -print | sort
+          exe_count=$(find package -maxdepth 1 -type f -name '*.exe' | wc -l)
+          if [[ "$exe_count" -lt 1 ]]; then
+            echo "No packaged OpenMW installer executable found" >&2
+            exit 1
+          fi
+
+      - name: Create Korean distribution bundle
+        id: bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+          label='${{ inputs.release_tag }}'
+          safe_label=$(printf '%s' "$label" | tr -c 'A-Za-z0-9._-' '-')
+          asset="Morrowind-Korean-OpenMW-${safe_label}-Full.zip"
+          checksum="${asset}.sha256"
+
+          mkdir -p dist/stage
+          cp -a package/. dist/stage/
+          cat > dist/stage/README-KOREAN.txt <<EOF
+          OpenMW Korean Windows build
+
+          Upstream OpenMW ref: ${{ inputs.upstream_ref }}
+          Korean bundle tag: ${{ inputs.release_tag }}
+
+          1. Run the OpenMW installer executable included in this archive.
+          2. Run KoreanConfig\\Install-Korean-Config.bat to back up and update your user openmw.cfg.
+          3. Install the Korean translation data package separately.
+
+          The config updater preserves unrelated data=, content=, and user settings.
+          It only replaces the Korean-managed fallback keys and does not force a global UTF-8 encoding setting.
+          EOF
+
+          (cd dist/stage && zip -qr -9 "../$asset" .)
+          (cd dist && sha256sum "$asset" > "$checksum")
+          unzip -tq "dist/$asset"
+
+          echo "asset=$asset" >> "$GITHUB_OUTPUT"
+          echo "checksum=$checksum" >> "$GITHUB_OUTPUT"
+          echo "Bundle: dist/$asset"
+          cat "dist/$checksum"
+
+      - name: Store final Korean bundle
+        uses: actions/upload-artifact@v6
+        with:
+          name: korean-windows-${{ inputs.release_tag }}
+          path: |
+            dist/${{ steps.bundle.outputs.asset }}
+            dist/${{ steps.bundle.outputs.checksum }}
+          if-no-files-found: error
+
+      - name: Create draft Korean prerelease
+        if: ${{ inputs.publish_release }}
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ inputs.release_tag }}
+          target_commitish: ${{ github.sha }}
+          name: OpenMW Korean Support ${{ inputs.release_tag }}
+          draft: true
+          prerelease: true
+          files: |
+            dist/${{ steps.bundle.outputs.asset }}
+            dist/${{ steps.bundle.outputs.checksum }}
+          body: |
+            OpenMW Korean Windows port build.
+
+            Upstream OpenMW ref: `${{ inputs.upstream_ref }}`
+
+            This build applies the maintained Korean runtime patchset to the selected upstream OpenMW source, overlays the Korean font assets, and bundles the safe `openmw.cfg` updater under `KoreanConfig/`.
+
+            The Korean translation data package remains separate from the OpenMW engine build.
