@@ -1,0 +1,69 @@
+[
+  {
+    "cp949": {
+      "fields": {
+        "DATA": [
+          "0100000000000000ff00ff00"
+        ],
+        "INTV": [
+          "5a000000"
+        ],
+        "NNAM": [
+          "68079003628822376"
+        ],
+        "ONAM": [
+          "gualtierus spurius"
+        ],
+        "PNAM": [
+          "26928226011047512912"
+        ],
+        "RNAM": [
+          "Imperial"
+        ],
+        "SCVR": [
+          "04JX3BM_Smugglers"
+        ]
+      },
+      "response": "곧 떠날게. 약속해.",
+      "result": ";honest"
+    },
+    "dial_cp949": "Hello",
+    "dial_openmw": "Hello",
+    "key": [
+      3688,
+      "193419224975110833",
+      3964
+    ],
+    "kind": "info_logic",
+    "openmw": {
+      "fields": {
+        "ANAM": [
+          "Wilderness"
+        ],
+        "DATA": [
+          "0100000000000000ff00ff00"
+        ],
+        "INTV": [
+          "5a000000"
+        ],
+        "NNAM": [
+          "68079003628822376"
+        ],
+        "ONAM": [
+          "gualtierus spurius"
+        ],
+        "PNAM": [
+          "26928226011047512912"
+        ],
+        "RNAM": [
+          "Imperial"
+        ],
+        "SCVR": [
+          "04JX3BM_Smugglers"
+        ]
+      },
+      "response": "곧 떠날게. 약속해.",
+      "result": ";honest"
+    }
+  }
+]

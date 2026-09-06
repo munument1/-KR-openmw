@@ -1,41 +1,26 @@
 {
-  "cp949_esp": null,
-  "cp949_files": [
-    "Korean Translation.zip",
-    "Morrowind/Data Files/Fonts/Magic_Cards_Regular.fnt",
-    "Morrowind/Data Files/Fonts/Magic_Cards_Regular_0_Lod_A.tex",
-    "Morrowind/Data Files/Fonts/century_gothic_big.fnt",
-    "Morrowind/Data Files/Fonts/century_gothic_big_0_Lod_A.tex",
-    "Morrowind/Data Files/Fonts/century_gothic_font_regular.fnt",
-    "Morrowind/Data Files/Fonts/century_gothic_font_regular_0_Lod_A.tex",
-    "Morrowind/Data Files/Fonts/daedric_font.fnt",
-    "Morrowind/Data Files/Fonts/daedric_font_0_Lod_A.tex",
-    "Morrowind/Morrowind.exe"
-  ],
-  "openmw_esp": "mods/Morrowind_Korean_ReTranslation/Morrowind_Korean_ReTranslation.esp",
-  "openmw_files": [
-    "CFG - 내문서 My Games OpenMW에 덮어쓰기/openmw.cfg",
-    "OpenMW/openmw.exe",
-    "OpenMW/resources/vfs/fonts/DejaVuLGCSansMono.omwfont",
-    "OpenMW/resources/vfs/fonts/Galmuri11-OFL-1.1.md",
-    "OpenMW/resources/vfs/fonts/Galmuri11.omwfont",
-    "OpenMW/resources/vfs/fonts/Galmuri11.ttf",
-    "OpenMW/resources/vfs/fonts/MysticCards.omwfont",
-    "README-KR.txt",
-    "README.txt",
-    "SHA256SUMS.txt",
-    "mods/Morrowind_Korean_ReTranslation/Morrowind_Korean_ReTranslation.cel",
-    "mods/Morrowind_Korean_ReTranslation/Morrowind_Korean_ReTranslation.esp",
-    "mods/Morrowind_Korean_ReTranslation/Morrowind_Korean_ReTranslation.mrk",
-    "mods/Morrowind_Korean_ReTranslation/Morrowind_Korean_ReTranslation.top",
-    "mods/Morrowind_Korean_ReTranslation/l10n/Calendar/ko.yaml",
-    "mods/Morrowind_Korean_ReTranslation/l10n/Interface/ko.yaml",
-    "mods/Morrowind_Korean_ReTranslation/l10n/OMWCamera/ko.yaml",
-    "mods/Morrowind_Korean_ReTranslation/l10n/OMWCombat/ko.yaml",
-    "mods/Morrowind_Korean_ReTranslation/l10n/OMWControls/ko.yaml",
-    "mods/Morrowind_Korean_ReTranslation/l10n/OMWEngine/ko.yaml",
-    "mods/Morrowind_Korean_ReTranslation/l10n/OMWMusic/ko.yaml",
-    "mods/Morrowind_Korean_ReTranslation/l10n/OMWShaders/ko.yaml"
-  ],
-  "status": "NO_ESP"
+  "cp949": {
+    "dials": 4955,
+    "esp": "Korean Translation.unpacked/Morrowind_Korean_ReTranslation.esp",
+    "infos": 31716,
+    "scripts": 236,
+    "sha256": "d876e2fd60b84380a3bca4750033ac6a36f776e173f5f2476433c66e519a9762",
+    "size": 15971383
+  },
+  "diff_counts": {
+    "dial": 0,
+    "info_logic": 1,
+    "info_response": 7869,
+    "known_regression_hits": 56,
+    "script_sctx": 236
+  },
+  "openmw": {
+    "dials": 4955,
+    "esp": "mods/Morrowind_Korean_ReTranslation/Morrowind_Korean_ReTranslation.esp",
+    "infos": 31716,
+    "scripts": 236,
+    "sha256": "e19f85d66d980ed5716682c711b0beaa1c7fe9decbdc06f2f95f0cb9a07ee78d",
+    "size": 18429943
+  },
+  "status": "OK"
 }

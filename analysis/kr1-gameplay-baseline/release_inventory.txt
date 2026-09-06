@@ -25,7 +25,10 @@ mods/Morrowind_Korean_ReTranslation/l10n/OMWEngine/ko.yaml
 mods/Morrowind_Korean_ReTranslation/l10n/OMWMusic/ko.yaml
 mods/Morrowind_Korean_ReTranslation/l10n/OMWShaders/ko.yaml
 
-CP949 ZIP entries:
+CP949 ZIP entries (including nested ZIPs):
+Korean Translation.unpacked/Morrowind_Korean_ReTranslation.esp
+Korean Translation.unpacked/Morrowind_Korean_ReTranslation.mrk
+Korean Translation.unpacked/README.txt
 Korean Translation.zip
 Morrowind/Data Files/Fonts/Magic_Cards_Regular.fnt
 Morrowind/Data Files/Fonts/Magic_Cards_Regular_0_Lod_A.tex

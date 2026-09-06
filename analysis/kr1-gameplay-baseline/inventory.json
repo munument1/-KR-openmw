@@ -1,6 +1,9 @@
 {
-  "cp949_esp": null,
+  "cp949_esp": "Korean Translation.unpacked/Morrowind_Korean_ReTranslation.esp",
   "cp949_files": [
+    "Korean Translation.unpacked/Morrowind_Korean_ReTranslation.esp",
+    "Korean Translation.unpacked/Morrowind_Korean_ReTranslation.mrk",
+    "Korean Translation.unpacked/README.txt",
     "Korean Translation.zip",
     "Morrowind/Data Files/Fonts/Magic_Cards_Regular.fnt",
     "Morrowind/Data Files/Fonts/Magic_Cards_Regular_0_Lod_A.tex",
