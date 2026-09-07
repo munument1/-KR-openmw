@@ -72,64 +72,125 @@ Copy-Item -LiteralPath $ConfigPath -Destination $backupPath -Force
 
 $currentLines = [System.IO.File]::ReadAllLines($ConfigPath, $utf8NoBom)
 $outputLines = New-Object 'System.Collections.Generic.List[string]'
-$managedEndMarker = ""
+$repairedBlocks = New-Object 'System.Collections.Generic.List[string]'
 
-foreach ($line in $currentLines) {
+function Test-ManagedDataLine([string]$Line) {
+    if ($Line -notmatch '^\s*data\s*=\s*(.*)$') {
+        return $false
+    }
+    $dataValue = $Matches[1].Trim().Trim('"').Replace('\', '/').TrimEnd('/')
+    foreach ($folderName in @($modFolderName) + $legacyModFolderNames) {
+        $pattern = '(?i)(^|/)mods/' + [regex]::Escape($folderName) + '$'
+        if ($dataValue -match $pattern) {
+            return $true
+        }
+    }
+    return $false
+}
+
+function Test-ManagedContentLine([string]$Line) {
+    if ($Line -notmatch '^\s*content\s*=\s*(.+?)\s*$') {
+        return $false
+    }
+    $contentName = $Matches[1].Trim().Trim('"')
+    return ($contentName -ieq $pluginFileName -or $retiredPluginFileNames -icontains $contentName)
+}
+
+$i = 0
+while ($i -lt $currentLines.Length) {
+    $line = $currentLines[$i]
     $trimmed = $line.Trim()
+    $blockType = ""
+    $blockEndMarker = ""
 
-    if (-not [string]::IsNullOrWhiteSpace($managedEndMarker)) {
-        if ($trimmed -eq $managedEndMarker) {
-            $managedEndMarker = ""
+    if ($trimmed -eq $fallbackBeginMarker) {
+        $blockType = "fallback"
+        $blockEndMarker = $fallbackEndMarker
+    } elseif ($trimmed -eq $dataBeginMarker) {
+        $blockType = "data"
+        $blockEndMarker = $dataEndMarker
+    } elseif ($trimmed -eq $contentBeginMarker) {
+        $blockType = "content"
+        $blockEndMarker = $contentEndMarker
+    }
+
+    if (-not [string]::IsNullOrWhiteSpace($blockEndMarker)) {
+        $matchingEnd = -1
+        for ($j = $i + 1; $j -lt $currentLines.Length; $j++) {
+            if ($currentLines[$j].Trim() -eq $blockEndMarker) {
+                $matchingEnd = $j
+                break
+            }
+        }
+
+        if ($matchingEnd -ge 0) {
+            $i = $matchingEnd + 1
+            continue
+        }
+
+        # A previous installer may have been interrupted after writing BEGIN but before END.
+        # The config has already been backed up. Remove only lines that are unmistakably
+        # ours, then resume at the first unrelated user/OpenMW setting.
+        [void]$repairedBlocks.Add($blockType)
+        $i++
+        while ($i -lt $currentLines.Length) {
+            $candidate = $currentLines[$i]
+            $candidateTrimmed = $candidate.Trim()
+
+            if ($candidateTrimmed -eq $fallbackBeginMarker -or $candidateTrimmed -eq $dataBeginMarker -or $candidateTrimmed -eq $contentBeginMarker -or $candidateTrimmed -eq $fallbackEndMarker -or $candidateTrimmed -eq $dataEndMarker -or $candidateTrimmed -eq $contentEndMarker) {
+                break
+            }
+
+            $isManagedPayload = $false
+            if ($blockType -eq "fallback") {
+                if ($payloadLines -contains $candidate) {
+                    $isManagedPayload = $true
+                } elseif ($candidate -match '^\s*fallback=([^,]+),' -and $managedKeys.Contains($Matches[1].Trim())) {
+                    $isManagedPayload = $true
+                }
+            } elseif ($blockType -eq "data") {
+                $isManagedPayload = Test-ManagedDataLine $candidate
+            } elseif ($blockType -eq "content") {
+                $isManagedPayload = Test-ManagedContentLine $candidate
+            }
+
+            if (-not $isManagedPayload) {
+                break
+            }
+            $i++
         }
         continue
     }
 
-    if ($trimmed -eq $fallbackBeginMarker) {
-        $managedEndMarker = $fallbackEndMarker
-        continue
-    }
-    if ($trimmed -eq $dataBeginMarker) {
-        $managedEndMarker = $dataEndMarker
-        continue
-    }
-    if ($trimmed -eq $contentBeginMarker) {
-        $managedEndMarker = $contentEndMarker
+    # Drop orphan END markers left by interrupted or manually edited installs.
+    if ($trimmed -eq $fallbackEndMarker -or $trimmed -eq $dataEndMarker -or $trimmed -eq $contentEndMarker) {
+        $i++
         continue
     }
 
     if ($line -match '^\s*fallback=([^,]+),' -and $managedKeys.Contains($Matches[1].Trim())) {
+        $i++
         continue
     }
 
     if ($manageMod) {
-        if ($line -match '^\s*content\s*=\s*(.+?)\s*$') {
-            $contentName = $Matches[1].Trim().Trim('"')
-            if ($contentName -ieq $pluginFileName -or $retiredPluginFileNames -icontains $contentName) {
-                continue
-            }
+        if (Test-ManagedContentLine $line) {
+            $i++
+            continue
         }
-
-        if ($line -match '^\s*data\s*=\s*(.*)$') {
-            $dataValue = $Matches[1].Trim().Trim('"').Replace('\', '/').TrimEnd('/')
-            $managedDataPath = $false
-            foreach ($folderName in @($modFolderName) + $legacyModFolderNames) {
-                $pattern = '(?i)(^|/)mods/' + [regex]::Escape($folderName) + '$'
-                if ($dataValue -match $pattern) {
-                    $managedDataPath = $true
-                    break
-                }
-            }
-            if ($managedDataPath) {
-                continue
-            }
+        if (Test-ManagedDataLine $line) {
+            $i++
+            continue
         }
     }
 
     [void]$outputLines.Add($line)
+    $i++
 }
 
-if (-not [string]::IsNullOrWhiteSpace($managedEndMarker)) {
-    throw "Unclosed Korean managed block detected in $ConfigPath. Backup created at $backupPath"
+if ($repairedBlocks.Count -gt 0) {
+    $types = ($repairedBlocks | Select-Object -Unique) -join ", "
+    Write-Warning "Recovered unclosed Korean managed block(s): $types. Backup: $backupPath"
 }
 
 function Insert-LinesAt {
