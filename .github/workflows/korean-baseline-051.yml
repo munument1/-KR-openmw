@@ -5,8 +5,13 @@ on:
     branches:
       - master
       - feature/gowun-journal-compat
+      - feature/video-subtitles-051
     paths:
       - .github/workflows/korean-baseline-051.yml
+      - apps/openmw/mwgui/videowidget.cpp
+      - apps/openmw/mwgui/videowidget.hpp
+      - korean/patches/**
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -57,6 +62,8 @@ jobs:
         grep -F 'utf8BomMode ? std::string_view(line)' components/translation/translation.cpp
         grep -F 'recoverLegacyKoreanJournalText(mTopic, mInfoId, mText);' apps/openmw/mwdialogue/journalentry.cpp
         grep -F 'containsUtf8Hangul(savedText) || !containsNonAscii(savedText)' apps/openmw/mwdialogue/journalentry.cpp
+        grep -F 'loadSubtitles(video);' apps/openmw/mwgui/videowidget.cpp
+        grep -F 'mPlayer->getCurrentTime()' apps/openmw/mwgui/videowidget.cpp
         grep -F 'GowunBatang-Bold.ttf' files/data/fonts/MysticCards.omwfont
         grep -F 'GowunBatang-Bold.ttf' files/data/fonts/DejaVuLGCSansMono.omwfont
         grep -F 'DemonicLetters.ttf' files/data/fonts/DemonicLetters.omwfont

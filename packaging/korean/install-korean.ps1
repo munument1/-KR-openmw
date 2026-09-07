@@ -18,7 +18,20 @@ $requiredModFiles = @(
     "Morrowind_Korean_ReTranslation.mrk",
     "Morrowind_Korean_ReTranslation.top"
 )
+$requiredSubtitleFiles = @(
+    "mw_intro.srt",
+    "mw_cavern.srt",
+    "mw_end.srt",
+    "bm_bearhunt1.srt",
+    "bm_bearhunt2.srt",
+    "bm_ceremony1.srt",
+    "bm_ceremony2.srt",
+    "bm_endgame.srt",
+    "bm_frostgiant1.srt",
+    "bm_frostgiant2.srt"
+)
 $payloadMod = Join-Path $payloadDir "mods\$modFolderName"
+$payloadSubtitles = Join-Path $payloadMod "video"
 $configUpdater = Join-Path $scriptDir "install-korean-config.ps1"
 $timestamp = Get-Date -Format "yyyyMMdd-HHmmss"
 
@@ -36,6 +49,12 @@ foreach ($requiredModFile in $requiredModFiles) {
 }
 if (-not (Test-Path -LiteralPath (Join-Path $payloadMod "l10n") -PathType Container)) {
     throw "Korean translation l10n payload not found: $payloadMod\l10n"
+}
+foreach ($requiredSubtitleFile in $requiredSubtitleFiles) {
+    $requiredPath = Join-Path $payloadSubtitles $requiredSubtitleFile
+    if (-not (Test-Path -LiteralPath $requiredPath -PathType Leaf)) {
+        throw "Korean video subtitle payload file not found: $requiredPath"
+    }
 }
 if (-not (Test-Path -LiteralPath $configUpdater -PathType Leaf)) {
     throw "Config updater not found: $configUpdater"
@@ -131,7 +150,7 @@ if (Test-Path -LiteralPath $legacyTargetMod -PathType Container) {
     Remove-Item -LiteralPath $legacyTargetMod -Recurse -Force
 }
 
-Write-Host "Installing Korean translation data to OpenMW mods folder..."
+Write-Host "Installing Korean translation data and video subtitles to OpenMW mods folder..."
 Copy-Item -LiteralPath $payloadMod -Destination $targetMod -Recurse -Force
 
 foreach ($requiredModFile in $requiredModFiles) {
@@ -141,6 +160,11 @@ foreach ($requiredModFile in $requiredModFiles) {
 }
 if (-not (Test-Path -LiteralPath (Join-Path $targetMod "l10n") -PathType Container)) {
     throw "Korean translation l10n directory was not installed correctly: $targetMod"
+}
+foreach ($requiredSubtitleFile in $requiredSubtitleFiles) {
+    if (-not (Test-Path -LiteralPath (Join-Path (Join-Path $targetMod "video") $requiredSubtitleFile) -PathType Leaf)) {
+        throw "Korean video subtitle was not installed correctly: $requiredSubtitleFile"
+    }
 }
 
 Write-Host "Updating OpenMW user configuration..."
@@ -154,6 +178,7 @@ Write-Host ""
 Write-Host "Korean OpenMW installation completed."
 Write-Host "OpenMW       : $OpenMWPath"
 Write-Host "Korean mod   : $targetMod"
+Write-Host "Subtitles    : $targetMod\video"
 Write-Host "Engine backup: $engineBackup"
 if (-not [string]::IsNullOrWhiteSpace($modBackup)) {
     Write-Host "Mod backup   : $modBackup"
