@@ -5,6 +5,50 @@ OpenMW는 Bethesda Softworks의 《The Elder Scrolls III: Morrowind》를 실행
 
 OpenMW에는 Bethesda의 Construction Set을 대체하는 편집 도구인 OpenMW-CS도 포함되어 있습니다.
 
+한국어 패치 설치 (OpenMW 0.51.0 KR2)
+-----------------------------------
+
+이 저장소의 KR2 배포판은 한국어 런타임 패치, 한글 폰트, 번역 데이터(ESP/CEL/MRK/TOP/l10n), `openmw.cfg` 설정을 한 번에 설치합니다.
+
+### 설치 방법
+
+1. 공식 **OpenMW 0.51.0**을 설치합니다.
+2. OpenMW를 한 번 실행하여 기본 설정 파일이 생성되게 합니다.
+3. Releases에서 **`Morrowind-Korean-OpenMW-0.51.0-KR2-Full.zip`**을 내려받아 원하는 곳에 압축을 풉니다.
+4. 압축을 푼 폴더의 **`Install-Korean.bat`**을 실행합니다.
+5. 관리자 권한 요청이 나오면 허용합니다.
+6. 설치기가 OpenMW 설치 폴더를 자동으로 찾습니다. 찾지 못하면 **`openmw.exe`가 들어 있는 OpenMW 설치 폴더**를 직접 입력합니다.
+7. 설치가 완료되면 OpenMW Launcher 또는 `openmw.exe`를 실행합니다.
+
+### 설치기가 자동으로 하는 작업
+
+- 기존 `openmw.exe`를 타임스탬프가 붙은 백업 파일로 보관한 뒤 한국어 지원 `openmw.exe`를 설치합니다.
+- Galmuri 및 한국어 표시용 폰트 파일을 `resources/vfs/fonts`에 설치하며, 기존 관리 대상 파일이 있으면 먼저 백업합니다.
+- 한국어 번역 데이터를 다음 폴더에 설치합니다.
+
+      <OpenMW 설치 폴더>\mods\Morrowind_Korean_ReTranslation
+
+- 다음 번역 파일 세트를 함께 설치합니다.
+  - `Morrowind_Korean_ReTranslation.esp`
+  - `Morrowind_Korean_ReTranslation.cel`
+  - `Morrowind_Korean_ReTranslation.mrk`
+  - `Morrowind_Korean_ReTranslation.top`
+  - `l10n` 폴더
+- `%Documents%\My Games\OpenMW\openmw.cfg`를 백업한 뒤 한국어 데이터 경로와 ESP를 자동 등록합니다.
+- `content=Morrowind_Korean_ReTranslation.esp`를 공식 `Morrowind.esm`, `Tribunal.esm`, `Bloodmoon.esm` 뒤에 추가합니다.
+- 한국어 fallback/font 설정을 마지막 `encoding=` 항목 바로 앞에 배치합니다.
+- 기존 사용자의 다른 `data=`, `content=` 항목과 모드 상대 순서, 기존 `encoding=` 값은 유지합니다.
+- 이전 `_v01` 한국어 패치 폴더와 관리 항목이 있으면 백업 후 새 `Morrowind_Korean_ReTranslation` 구성으로 정리합니다.
+
+### 따로 할 필요가 없는 것
+
+- ESP를 직접 `mods` 폴더에 복사할 필요가 없습니다.
+- OpenMW Launcher에서 한국어 ESP를 수동으로 추가할 필요가 없습니다.
+- `openmw.cfg`를 직접 편집할 필요가 없습니다.
+- 전역 `encoding=utf8` 설정을 추가할 필요가 없습니다.
+
+설치를 다시 실행해도 기존 엔진, 관리 대상 폰트, 한국어 모드 폴더, `openmw.cfg`는 설치 전에 백업됩니다.
+
 * 버전: 0.52.0
 * 라이선스: GPLv3 (자세한 내용은 [LICENSE](https://gitlab.com/OpenMW/openmw/-/raw/master/LICENSE) 참조)
 * 웹사이트: https://www.openmw.org
@@ -102,7 +146,7 @@ Morrowind, Tribunal, Bloodmoon의 메인 퀘스트는 모두 완료할 수 있�
                                             win1252 - 서유럽(라틴 문자) 계열.
                                             기본값으로 사용
       --fallback arg                        대체(fallback) 값 설정
-      --no-grab [=arg(=1)] (=0)             마우스 커서를 게임 창에 고정하지 않음
+      --no-grab [=arg(=1)] (=0)            마우스 커서를 게임 창에 고정하지 않음
       --export-fonts [=arg(=1)] (=0)        Morrowind .fnt 폰트를 현재 디렉터리에
                                             PNG 이미지와 XML 파일로 내보내기
       --activate-dist arg (=-1)             활성화 거리 강제 지정
