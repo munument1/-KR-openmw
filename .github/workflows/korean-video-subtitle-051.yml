@@ -1,0 +1,24 @@
+name: Korean video subtitle 0.51 build
+
+on:
+  push:
+    branches:
+      - feature/video-subtitles-051
+    paths:
+      - apps/openmw/mwgui/videowidget.cpp
+      - apps/openmw/mwgui/videowidget.hpp
+      - korean/patches/**
+      - .github/workflows/korean-video-subtitle-051.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  Windows-051:
+    uses: ./.github/workflows/windows.yml
+    with:
+      image: "2022"
+      source_repository: OpenMW/openmw
+      source_ref: openmw-0.51.0
+      korean_overlay: true
