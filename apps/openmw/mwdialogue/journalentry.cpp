@@ -36,13 +36,23 @@ namespace
         return false;
     }
 
+    bool containsNonAscii(std::string_view text)
+    {
+        for (const unsigned char byte : text)
+        {
+            if (byte >= 0x80)
+                return true;
+        }
+        return false;
+    }
+
     void recoverLegacyKoreanJournalText(
         const ESM::RefId& topic, const ESM::RefId& infoId, std::string& savedText)
     {
-        // Older Korean builds could save already-mojibaked journal strings. If the save text no longer contains
-        // Hangul but the currently loaded INFO response for the same topic/INFO does, rebuild the entry from the
-        // current content record. Normal Korean journal entries and non-Korean content are left untouched.
-        if (containsUtf8Hangul(savedText))
+        // Older Korean builds could save already-mojibaked journal strings. Only consider saved text that has
+        // non-ASCII bytes but no Hangul, then require the same topic/INFO in the currently loaded content to contain
+        // Hangul before replacing it. Normal Korean entries, plain ASCII entries and unrelated content are untouched.
+        if (containsUtf8Hangul(savedText) || !containsNonAscii(savedText))
             return;
 
         const auto& dialogues = MWBase::Environment::get().getESMStore()->get<ESM::Dialogue>();
