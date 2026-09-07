@@ -141,7 +141,7 @@ add_component_dir (sceneutil
     lightmanager lightutil positionattitudetransform workqueue pathgridutil waterutil writescene serialize optimizer
     detourdebugdraw navmesh agentpath animblendrules shadow mwshadowtechnique recastmesh shadowsbin osgacontroller rtt
     screencapture depth color riggeometryosgaextension extradata unrefqueue lightcommon clearcolor
-    cullsafeboundsvisitor keyframe nodecallback textkeymap glextensions fog texmat
+    cullsafeboundsvisitor keyframe nodecallback textkeymap glextensions fog texmat material
     )
 
 add_component_dir (nif
@@ -386,7 +386,7 @@ add_component_dir (fallback
 
 add_component_dir (lua_ui
     registerscriptsettings scriptsettings
-    properties widget element util layers content alignment resources
+    properties widget input element util layers content alignment resources
     adapter text textedit window image container flex padding
     )
 copy_resource_file("lua_ui/content.lua" "${OPENMW_RESOURCES_ROOT}" "resources/lua_libs/content.lua")

@@ -526,7 +526,7 @@ namespace MWLua
         const MWWorld::Ptr& target, const std::vector<int>& effects, bool ignoreReflect, bool ignoreSpellAbsorption,
         bool stackable, bool isReflect)
     {
-        if (!target.isEmpty())
+        if (!target.isEmpty() && !effects.empty())
         {
             mLua.protectedCall([&](LuaUtil::LuaView& view) {
                 sol::table luaEffects = view.newTable();
@@ -547,6 +547,30 @@ namespace MWLua
                 sendLocalEvent(target, "ApplyMagicEffects", data);
             });
         }
+    }
+
+    void LuaManager::magicProjectileHit(ESM::RefId spellId, const MWWorld::Ptr& caster, ESM::RefNum item,
+        const MWWorld::Ptr& victim, const osg::Vec3f& position, const osg::Vec3f& normal)
+    {
+        mLua.protectedCall([&](LuaUtil::LuaView& view) {
+            sol::table projectile = view.newTable();
+            sol::table hitResult = view.newTable();
+            sol::table spellcast = view.newTable();
+            hitResult["hit"] = true;
+            hitResult["hitPos"] = position;
+            hitResult["hitNormal"] = normal;
+            if (!victim.isEmpty())
+                hitResult["hitObject"] = GObject(victim);
+            spellcast["id"] = spellId.serializeText();
+            if (!caster.isEmpty())
+                spellcast["caster"] = GObject(caster);
+            if (item.isSet())
+                spellcast["item"] = GObject(item);
+            projectile["type"] = "Magic";
+            projectile["userData"] = spellcast;
+
+            mGlobalScripts.onProjectileHit(projectile, hitResult);
+        });
     }
 
     void LuaManager::useItem(const MWWorld::Ptr& object, const MWWorld::Ptr& actor, bool force)

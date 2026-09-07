@@ -132,6 +132,24 @@ namespace
             box->setIndexSelected(4);
     }
 
+    void updateShadowMapResolutionComboBox(MyGUI::ComboBox* box)
+    {
+        const int resolution = Settings::shadows().mShadowMapResolution;
+        if (resolution == 512)
+            box->setIndexSelected(0);
+        else if (resolution == 1024)
+            box->setIndexSelected(1);
+        else if (resolution == 2048)
+            box->setIndexSelected(2);
+        else if (resolution == 4096)
+            box->setIndexSelected(3);
+        else
+        {
+            box->addItem(std::to_string(resolution), resolution);
+            box->setIndexSelected(4);
+        }
+    }
+
     void updateSliderLabel(MyGUI::ScrollBar* scroller, MyGUI::TextBox* textBox,
         const std::vector<icu::UnicodeString>& argNames, const std::vector<icu::Formattable>& args)
     {
@@ -271,8 +289,6 @@ namespace MWGui
         getWidget(mKeyboardSwitch, "KeyboardButton");
         getWidget(mControllerSwitch, "ControllerButton");
         getWidget(mWaterRefractionButton, "WaterRefractionButton");
-        getWidget(mSunlightScatteringButton, "SunlightScatteringButton");
-        getWidget(mWobblyShoresButton, "WobblyShoresButton");
         getWidget(mWaterTextureSize, "WaterTextureSize");
         getWidget(mWaterReflectionDetail, "WaterReflectionDetail");
         getWidget(mWaterRainRippleDetail, "WaterRainRippleDetail");
@@ -292,6 +308,11 @@ namespace MWGui
         getWidget(mClassicFalloffWidget, "ClassicFalloffWidget");
         getWidget(mMinimumBrightnessText, "MinimumBrightnessText");
         getWidget(mMinimumBrightnessScroll, "MinimumBrightnessScroll");
+        getWidget(mActorShadowsButton, "ActorShadowsButton");
+        getWidget(mPlayerShadowsButton, "PlayerShadowsButton");
+        getWidget(mTerrainShadowsButton, "TerrainShadowsButton");
+        getWidget(mObjectShadowsButton, "ObjectShadowsButton");
+        getWidget(mShadowMapResolution, "ShadowMapResolution");
 
 #ifndef WIN32
         // hide gamma controls since it currently does not work under Linux
@@ -317,8 +338,6 @@ namespace MWGui
         mAnisotropy->eventComboChangePosition += MyGUI::newDelegate(this, &SettingsWindow::onAnisotropyChanged);
         mResolutionList->eventListChangePosition += MyGUI::newDelegate(this, &SettingsWindow::onResolutionSelected);
 
-        mWaterRefractionButton->eventMouseButtonClick
-            += MyGUI::newDelegate(this, &SettingsWindow::onRefractionButtonClicked);
         mWaterTextureSize->eventComboChangePosition
             += MyGUI::newDelegate(this, &SettingsWindow::onWaterTextureSizeChanged);
         mWaterReflectionDetail->eventComboChangePosition
@@ -329,6 +348,16 @@ namespace MWGui
         mLightsResetButton->eventMouseButtonClick
             += MyGUI::newDelegate(this, &SettingsWindow::onLightsResetButtonClicked);
         mMaxLights->eventComboChangePosition += MyGUI::newDelegate(this, &SettingsWindow::onMaxLightsChanged);
+
+        mActorShadowsButton->eventMouseButtonClick += MyGUI::newDelegate(this, &SettingsWindow::onShadowsButtonClicked);
+        mPlayerShadowsButton->eventMouseButtonClick
+            += MyGUI::newDelegate(this, &SettingsWindow::onShadowsButtonClicked);
+        mTerrainShadowsButton->eventMouseButtonClick
+            += MyGUI::newDelegate(this, &SettingsWindow::onShadowsButtonClicked);
+        mObjectShadowsButton->eventMouseButtonClick
+            += MyGUI::newDelegate(this, &SettingsWindow::onShadowsButtonClicked);
+        mShadowMapResolution->eventComboChangePosition
+            += MyGUI::newDelegate(this, &SettingsWindow::onShadowMapResolutionChanged);
 
         mWindowModeList->eventComboChangePosition += MyGUI::newDelegate(this, &SettingsWindow::onWindowModeChanged);
         mVSyncModeList->eventComboChangePosition += MyGUI::newDelegate(this, &SettingsWindow::onVSyncModeChanged);
@@ -389,11 +418,9 @@ namespace MWGui
         const int waterRainRippleDetail = Settings::water().mRainRippleDetail;
         mWaterRainRippleDetail->setIndexSelected(waterRainRippleDetail);
 
-        const bool waterRefraction = Settings::water().mRefraction;
-        mSunlightScatteringButton->setEnabled(waterRefraction);
-        mWobblyShoresButton->setEnabled(waterRefraction);
-
         updateMaxLightsComboBox(mMaxLights);
+
+        updateShadowMapResolutionComboBox(mShadowMapResolution);
 
         const Settings::WindowMode windowMode = Settings::video().mWindowMode;
         mWindowBorderButton->setEnabled(
@@ -521,14 +548,6 @@ namespace MWGui
                 break;
             }
         }
-    }
-
-    void SettingsWindow::onRefractionButtonClicked(MyGUI::Widget* /*sender*/)
-    {
-        const bool refractionEnabled = Settings::water().mRefraction;
-
-        mSunlightScatteringButton->setEnabled(refractionEnabled);
-        mWobblyShoresButton->setEnabled(refractionEnabled);
     }
 
     void SettingsWindow::onWaterTextureSizeChanged(MyGUI::ComboBox* /*sender*/, size_t pos)
@@ -725,6 +744,49 @@ namespace MWGui
                 break;
             default:
                 Log(Debug::Warning) << "Unexpected anisotropy option pos " << pos;
+                break;
+        }
+
+        apply();
+    }
+
+    void SettingsWindow::onShadowsButtonClicked(MyGUI::Widget* /*sender*/)
+    {
+        auto& shadowSettings = Settings::shadows();
+        shadowSettings.mEnableShadows.set(shadowSettings.mActorShadows || shadowSettings.mPlayerShadows
+            || shadowSettings.mTerrainShadows || shadowSettings.mObjectShadows);
+        apply();
+    }
+
+    void SettingsWindow::onShadowMapResolutionChanged(MyGUI::ComboBox* sender, size_t pos)
+    {
+        if (pos == MyGUI::ITEM_NONE)
+            return;
+
+        auto& shadowSettings = Settings::shadows();
+        switch (pos)
+        {
+            case 0:
+                shadowSettings.mShadowMapResolution.set(512);
+                break;
+            case 1:
+                shadowSettings.mShadowMapResolution.set(1024);
+                break;
+            case 2:
+                shadowSettings.mShadowMapResolution.set(2048);
+                break;
+            case 3:
+                shadowSettings.mShadowMapResolution.set(4096);
+                break;
+            case 4:
+            {
+                int* resolution = sender->getItemDataAt<int>(4);
+                if (resolution)
+                    shadowSettings.mShadowMapResolution.set(*resolution);
+                break;
+            }
+            default:
+                Log(Debug::Warning) << "Unexpected shadow map resolution pos " << pos;
                 break;
         }
 

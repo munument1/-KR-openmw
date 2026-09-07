@@ -324,6 +324,20 @@ testing.registerGlobalTest('player with equipped weapon on attack should damage 
     testing.runLocalTest(player, 'player with equipped weapon on attack should damage health of other actors')
 end)
 
+testing.registerGlobalTest('camera.getFocusRay should report the object under the crosshair', function()
+    local player = initPlayer()
+    local target = world.createObject(types.NPC.record(player).id)
+    target:teleport(player.cell, player.position + util.vector3(0, 150, 0), util.transform.rotateZ(math.rad(180)))
+    coroutine.yield()
+    coroutine.yield()
+    -- The spawned NPC dies with the test.
+    local ok, err = pcall(testing.runLocalTest, player, 'camera.getFocusRay should report the object under the crosshair')
+    target:remove()
+    if not ok then
+        error(err, 0)
+    end
+end)
+
 testing.registerGlobalTestStep('load while teleporting - init player', function()
     local player = world.players[1]
     player:teleport('Museum of Wonders', util.vector3(0, -1500, 111), util.transform.rotateZ(math.rad(180)))
@@ -374,6 +388,28 @@ testing.registerGlobalTest('load script generated static', function()
     local record = types.Static.records.OMW_Generated_Static
     testing.expectNotEqual(record, nil, 'OMW_Generated_Static should have been generated')
     testing.expectEqual(record.model, 'meshes/generatedonload.nif')
+end)
+
+testing.registerGlobalTest('load script generated apparatuses', function()
+    local apparatus = types.Apparatus.records.OMW_Generated_Apparatus
+    testing.expectNotEqual(apparatus, nil)
+    testing.expectEqual(apparatus.name, 'Modified apparatus')
+    testing.expectEqual(apparatus.model, 'meshes/a/modified.nif')
+    testing.expectEqual(apparatus.icon, 'icons/a/modified.dds')
+    testing.expectEqual(apparatus.mwscript, nil)
+    testing.expectEqual(apparatus.type, types.Apparatus.TYPE.Calcinator)
+    testing.expectEqual(apparatus.quality, 10)
+    testing.expectEqual(apparatus.weight, 5.5)
+    testing.expectEqual(apparatus.value, 450)
+
+    local templated = types.Apparatus.records.OMW_Templated_Apparatus
+    testing.expectEqual(templated.name, 'Templated apparatus')
+    testing.expectEqual(templated.quality, apparatus.quality)
+    local copied = types.Apparatus.records.OMW_Copied_Apparatus
+    testing.expectEqual(copied.name, apparatus.name)
+    testing.expectEqual(copied.type, apparatus.type)
+    testing.expectEqual(types.Apparatus.records.OMW_Temporary_Apparatus, nil)
+    testing.expectEqual(types.Apparatus.records.OMW_Invalid_Apparatus, nil)
 end)
 
 return {

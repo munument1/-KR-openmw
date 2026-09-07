@@ -13,6 +13,7 @@
 #include <osgUtil/IncrementalCompileOperation>
 
 #include <deque>
+#include <map>
 #include <memory>
 #include <span>
 #include <unordered_map>
@@ -289,8 +290,6 @@ namespace MWRender
     private:
         void updateTextureFiltering();
         void updateAmbient();
-        void setFogColor(const osg::Vec4f& color);
-
         struct WorldspaceChunkMgr
         {
             std::unique_ptr<Terrain::World> mTerrain;
@@ -363,6 +362,7 @@ namespace MWRender
         bool mNight = false;
         osg::Vec2f mProjectionOffset;
         const MWWorld::GroundcoverStore& mGroundCoverStore;
+        std::map<std::string, std::string> mAppliedShadowDefines;
 
         void operator=(const RenderingManager&);
         RenderingManager(const RenderingManager&);

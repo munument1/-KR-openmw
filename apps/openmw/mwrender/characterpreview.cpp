@@ -5,7 +5,6 @@
 #include <osg/BlendFunc>
 #include <osg/Camera>
 #include <osg/Fog>
-#include <osg/Material>
 #include <osg/PositionAttitudeTransform>
 #include <osg/Texture2D>
 #include <osg/ValueObject>
@@ -19,6 +18,7 @@
 #include <components/sceneutil/depth.hpp>
 #include <components/sceneutil/fog.hpp>
 #include <components/sceneutil/lightmanager.hpp>
+#include <components/sceneutil/material.hpp>
 #include <components/sceneutil/nodecallback.hpp>
 #include <components/sceneutil/rtt.hpp>
 #include <components/sceneutil/shadow.hpp>
@@ -238,11 +238,8 @@ namespace MWRender
         stateset->setDefine("FORCE_OPAQUE", "1", osg::StateAttribute::ON);
         stateset->setMode(GL_NORMALIZE, osg::StateAttribute::ON);
         stateset->setMode(GL_CULL_FACE, osg::StateAttribute::ON);
-        osg::ref_ptr<osg::Material> defaultMat(new osg::Material);
-        defaultMat->setColorMode(osg::Material::OFF);
-        defaultMat->setAmbient(osg::Material::FRONT_AND_BACK, osg::Vec4f(1, 1, 1, 1));
-        defaultMat->setDiffuse(osg::Material::FRONT_AND_BACK, osg::Vec4f(1, 1, 1, 1));
-        defaultMat->setSpecular(osg::Material::FRONT_AND_BACK, osg::Vec4f(0.f, 0.f, 0.f, 0.f));
+        osg::ref_ptr<SceneUtil::Material> defaultMat(new SceneUtil::Material);
+        defaultMat->updateStateSet(stateset);
         stateset->setAttribute(defaultMat);
 
         SceneUtil::ShadowManager::instance().disableShadowsForStateSet(*stateset);
@@ -256,8 +253,8 @@ namespace MWRender
         stateset->addUniform(new osg::Uniform("skyBlendingStart", 8000000.0f));
         stateset->addUniform(
             new osg::Uniform("screenRes", osg::Vec2f{ static_cast<float>(sizeX), static_cast<float>(sizeY) }));
-
-        stateset->addUniform(new osg::Uniform("emissiveMult", 1.f));
+        stateset->addUniform(new osg::Uniform("alpha", 1.f));
+        stateset->addUniform(new osg::Uniform("actorFade", 1.f));
 
         osg::ref_ptr<osg::Texture2D> dummyTexture = new osg::Texture2D();
         dummyTexture->setWrap(osg::Texture::WRAP_S, osg::Texture::CLAMP_TO_EDGE);
@@ -393,7 +390,7 @@ namespace MWRender
             if (iter->getType() == ESM::Weapon::sRecordId)
             {
                 MWWorld::LiveCellRef<ESM::Weapon>* ref = iter->get<ESM::Weapon>();
-                int type = ref->mBase->mData.mType;
+                const ESM::RefId type = ref->mBase->mData.mType;
                 const ESM::WeaponType* weaponInfo = MWMechanics::getWeaponType(type);
                 showCarriedLeft = !(weaponInfo->mFlags & ESM::WeaponType::TwoHanded);
 
@@ -406,9 +403,9 @@ namespace MWRender
                 else
                 {
                     static const std::string oneHandFallback
-                        = "inventory" + MWMechanics::getWeaponType(ESM::Weapon::LongBladeOneHand)->mLongGroup;
+                        = "inventory" + MWMechanics::getWeaponType(ESM::WeaponType::LongBladeOneHand)->mLongGroup;
                     static const std::string twoHandFallback
-                        = "inventory" + MWMechanics::getWeaponType(ESM::Weapon::LongBladeTwoHand)->mLongGroup;
+                        = "inventory" + MWMechanics::getWeaponType(ESM::WeaponType::LongBladeTwoHand)->mLongGroup;
 
                     // For real two-handed melee weapons use 2h swords animations as fallback, otherwise use the 1h ones
                     if (weaponInfo->mFlags & ESM::WeaponType::TwoHanded

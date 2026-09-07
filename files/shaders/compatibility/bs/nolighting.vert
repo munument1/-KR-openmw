@@ -8,6 +8,7 @@
 
 #if @diffuseMap
 varying vec2 diffuseMapUV;
+uniform mat4 texMat@diffuseMapUV;
 #endif
 
 varying vec3 passNormal;
@@ -16,14 +17,14 @@ varying float euclideanDepth;
 varying float linearDepth;
 varying float passFalloff;
 
+centroid varying vec4 passColor;
+
 uniform bool useFalloff;
 uniform vec4 falloffParams;
 
-uniform mat4 texMat@diffuseMapUV;
-
 #include "lib/view/depth.glsl"
+#include "lib/material/vertexcolors.glsl"
 
-#include "compatibility/vertexcolors.glsl"
 #include "compatibility/shadows_vertex.glsl"
 
 void main(void)

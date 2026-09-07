@@ -5,7 +5,6 @@
 #include <osg/ClipControl>
 #include <osg/ComputeBoundsVisitor>
 #include <osg/Group>
-#include <osg/Material>
 #include <osg/Matrix>
 #include <osg/UserDataContainer>
 
@@ -32,6 +31,7 @@
 #include <components/sceneutil/cullsafeboundsvisitor.hpp>
 #include <components/sceneutil/depth.hpp>
 #include <components/sceneutil/lightmanager.hpp>
+#include <components/sceneutil/material.hpp>
 #include <components/sceneutil/positionattitudetransform.hpp>
 #include <components/sceneutil/rtt.hpp>
 #include <components/sceneutil/shadow.hpp>
@@ -131,6 +131,26 @@ namespace
     private:
         bool mDoThreadUnsafeOps = false;
     };
+
+    unsigned int getIndoorShadowCastingMask()
+    {
+        unsigned int mask = MWRender::Mask_Scene;
+        if (Settings::shadows().mActorShadows)
+            mask |= MWRender::Mask_Actor;
+        if (Settings::shadows().mPlayerShadows)
+            mask |= MWRender::Mask_Player;
+        return mask;
+    }
+
+    unsigned int getOutdoorShadowCastingMask()
+    {
+        unsigned int mask = getIndoorShadowCastingMask();
+        if (Settings::shadows().mObjectShadows)
+            mask |= (MWRender::Mask_Object | MWRender::Mask_Static);
+        if (Settings::shadows().mTerrainShadows)
+            mask |= MWRender::Mask_Terrain;
+        return mask;
+    }
 }
 
 namespace MWRender
@@ -223,28 +243,16 @@ namespace MWRender
         sceneRoot->setNodeMask(Mask_Scene);
         sceneRoot->setName("Scene Root");
 
-        int shadowCastingTraversalMask = Mask_Scene;
-        if (Settings::shadows().mActorShadows)
-            shadowCastingTraversalMask |= Mask_Actor;
-        if (Settings::shadows().mPlayerShadows)
-            shadowCastingTraversalMask |= Mask_Player;
-
-        int indoorShadowCastingTraversalMask = shadowCastingTraversalMask;
-        if (Settings::shadows().mObjectShadows)
-            shadowCastingTraversalMask |= (Mask_Object | Mask_Static);
-        if (Settings::shadows().mTerrainShadows)
-            shadowCastingTraversalMask |= Mask_Terrain;
-
-        mShadowManager = std::make_unique<SceneUtil::ShadowManager>(sceneRoot, mRootNode, shadowCastingTraversalMask,
-            indoorShadowCastingTraversalMask, Mask_Terrain | Mask_Object | Mask_Static, Settings::shadows(),
+        mShadowManager = std::make_unique<SceneUtil::ShadowManager>(sceneRoot, mRootNode, getOutdoorShadowCastingMask(),
+            getIndoorShadowCastingMask(), Mask_Terrain | Mask_Object | Mask_Static, Settings::shadows(),
             mResourceSystem->getSceneManager()->getShaderManager());
 
         Shader::ShaderManager::DefineMap globalDefines = Shader::getDefaultDefines();
-        Shader::ShaderManager::DefineMap shadowDefines = mShadowManager->getShadowDefines(Settings::shadows());
+        mAppliedShadowDefines = mShadowManager->getShadowDefines(Settings::shadows());
         Shader::ShaderManager::DefineMap lightDefines = sceneRoot->getLightDefines();
 
-        for (auto itr = shadowDefines.begin(); itr != shadowDefines.end(); itr++)
-            globalDefines[itr->first] = itr->second;
+        for (const auto& [key, value] : mAppliedShadowDefines)
+            globalDefines[key] = value;
 
         globalDefines["forcePPL"] = Settings::shaders().mForcePerPixelLighting ? "1" : "0";
         globalDefines["clamp"] = Settings::shaders().mClampLighting ? "1" : "0";
@@ -270,6 +278,9 @@ namespace MWRender
 
         // It is unnecessary to stop/start the viewer as no frames are being rendered yet.
         mResourceSystem->getSceneManager()->getShaderManager().setGlobalDefines(globalDefines);
+
+        // Only set up the shadow casting shaders once our global defines have been set
+        mShadowManager->setupShaders(mResourceSystem->getSceneManager()->getShaderManager());
 
         mNavMesh = std::make_unique<NavMesh>(mRootNode, mWorkQueue, Settings::navigator().mEnableNavMeshRender,
             Settings::navigator().mNavMeshRenderMode);
@@ -315,19 +326,25 @@ namespace MWRender
 
         mPerViewUniformStateUpdater = new SceneUtil::PerViewUniformStateUpdater(mResourceSystem->getSceneManager(),
             mResourceSystem->getSceneManager()->getShaderManager().reserveGlobalTextureUnits(
-                Shader::ShaderManager::Slot::OpaqueDepthTexture));
+                Shader::ShaderManager::Slot::OpaqueDepthTexture),
+            mResourceSystem->getSceneManager()->getShaderManager().reserveGlobalTextureUnits(
+                Shader::ShaderManager::Slot::OpaqueColorTexture));
         rootNode->addCullCallback(mPerViewUniformStateUpdater);
 
         mPostProcessor = new PostProcessor(*this, viewer, mRootNode, resourceSystem->getVFS());
         resourceSystem->getSceneManager()->setOpaqueDepthTex(
             mPostProcessor->getTexture(PostProcessor::Tex_OpaqueDepth, 0),
             mPostProcessor->getTexture(PostProcessor::Tex_OpaqueDepth, 1));
+        resourceSystem->getSceneManager()->setOpaqueColorTex(
+            mPostProcessor->getTexture(PostProcessor::Tex_OpaqueColor, 0),
+            mPostProcessor->getTexture(PostProcessor::Tex_OpaqueColor, 1));
         resourceSystem->getSceneManager()->setSupportsNormalsRT(mPostProcessor->getSupportsNormalsRT());
         resourceSystem->getSceneManager()->setWeatherParticleOcclusion(Settings::shaders().mWeatherParticleOcclusion);
 
         // water goes after terrain for correct waterculling order
         mWater = std::make_unique<Water>(
             sceneRoot->getParent(0), sceneRoot, mResourceSystem, mViewer->getIncrementalCompileOperation());
+        mPostProcessor->setupTransparentBin(mWater.get());
 
         mCamera = std::make_unique<Camera>(mViewer->getCamera());
 
@@ -344,15 +361,12 @@ namespace MWRender
 
         sceneRoot->getOrCreateStateSet()->setMode(GL_CULL_FACE, osg::StateAttribute::ON);
         sceneRoot->getOrCreateStateSet()->setMode(GL_NORMALIZE, osg::StateAttribute::ON);
-        osg::ref_ptr<osg::Material> defaultMat(new osg::Material);
-        defaultMat->setColorMode(osg::Material::OFF);
-        defaultMat->setAmbient(osg::Material::FRONT_AND_BACK, osg::Vec4f(1, 1, 1, 1));
-        defaultMat->setDiffuse(osg::Material::FRONT_AND_BACK, osg::Vec4f(1, 1, 1, 1));
-        defaultMat->setSpecular(osg::Material::FRONT_AND_BACK, osg::Vec4f(0.f, 0.f, 0.f, 0.f));
+        osg::ref_ptr<SceneUtil::Material> defaultMat(new SceneUtil::Material);
+        defaultMat->updateStateSet(sceneRoot->getOrCreateStateSet());
         sceneRoot->getOrCreateStateSet()->setAttribute(defaultMat);
-        sceneRoot->getOrCreateStateSet()->addUniform(new osg::Uniform("emissiveMult", 1.f));
-        sceneRoot->getOrCreateStateSet()->addUniform(new osg::Uniform("specStrength", 1.f));
         sceneRoot->getOrCreateStateSet()->addUniform(new osg::Uniform("distortionStrength", 0.f));
+        sceneRoot->getOrCreateStateSet()->addUniform(new osg::Uniform("alpha", 1.f));
+        sceneRoot->getOrCreateStateSet()->addUniform(new osg::Uniform("actorFade", 1.f));
 
         resourceSystem->getSceneManager()->setUpNormalsRTForStateSet(sceneRoot->getOrCreateStateSet(), true);
 
@@ -390,7 +404,7 @@ namespace MWRender
         mStateUpdater->setFogEnd(mViewDistance);
 
         // Hopefully, anything genuinely requiring the default alpha func of GL_ALWAYS explicitly sets it
-        mRootNode->getOrCreateStateSet()->setAttribute(Shader::RemovedAlphaFunc::getInstance(GL_ALWAYS));
+        mViewer->getSceneData()->getOrCreateStateSet()->setAttribute(Shader::RemovedAlphaFunc::getInstance(GL_ALWAYS));
         // The transparent renderbin sets alpha testing on because that was faster on old GPUs. It's now slower and
         // breaks things.
         mRootNode->getOrCreateStateSet()->setMode(GL_ALPHA_TEST, osg::StateAttribute::OFF);
@@ -656,7 +670,9 @@ namespace MWRender
         }
         else if (mode == Render_Water)
         {
-            return mWater->toggle();
+            const bool enabled = mWater->toggle();
+            mStateUpdater->setWaterEnabled(mWater->isVisible());
+            return enabled;
         }
         else if (mode == Render_Scene)
         {
@@ -734,15 +750,24 @@ namespace MWRender
         }
         mCamera->update(dt, paused);
 
+        float fogStart = mFog->getFogStart(false);
+        float fogEnd = mFog->getFogEnd(false);
+        osg::Vec4f fogColor = mFog->getFogColor(false);
+
+        float fogUnderwaterStart = mFog->getFogStart(true);
+        float fogUnderwaterEnd = mFog->getFogEnd(true);
+        osg::Vec4f fogUnderwaterColor = mFog->getFogColor(true);
+
         bool isUnderwater = mWater->isUnderwater(mCamera->getPosition());
 
-        float fogStart = mFog->getFogStart(isUnderwater);
-        float fogEnd = mFog->getFogEnd(isUnderwater);
-        osg::Vec4f fogColor = mFog->getFogColor(isUnderwater);
-
+        mStateUpdater->setFogColor(fogColor);
         mStateUpdater->setFogStart(fogStart);
         mStateUpdater->setFogEnd(fogEnd);
-        setFogColor(fogColor);
+        mStateUpdater->setUnderwaterFogStart(fogUnderwaterStart);
+        mStateUpdater->setUnderwaterFogEnd(fogUnderwaterEnd);
+        mStateUpdater->setUnderwaterFogColor(fogUnderwaterColor);
+
+        mViewer->getCamera()->setClearColor(isUnderwater ? fogUnderwaterColor : fogColor);
 
         auto world = MWBase::Environment::get().getWorld();
         const auto& stateUpdater = mPostProcessor->getStateUpdater();
@@ -809,6 +834,7 @@ namespace MWRender
     {
         mWater->setEnabled(enabled);
         mSky->setWaterEnabled(enabled);
+        mStateUpdater->setWaterEnabled(mWater->isVisible());
 
         mPostProcessor->getStateUpdater()->setIsWaterEnabled(enabled);
     }
@@ -818,6 +844,7 @@ namespace MWRender
         mWater->setCullCallback(mTerrain->getHeightCullCallback(height, Mask_Water));
         mWater->setHeight(height);
         mSky->setWaterHeight(height);
+        mStateUpdater->setWaterHeight(height);
 
         mPostProcessor->getStateUpdater()->setWaterHeight(height);
     }
@@ -1264,13 +1291,6 @@ namespace MWRender
         mStateUpdater->setAmbientColor(color);
     }
 
-    void RenderingManager::setFogColor(const osg::Vec4f& color)
-    {
-        mViewer->getCamera()->setClearColor(color);
-
-        mStateUpdater->setFogColor(color);
-    }
-
     RenderingManager::WorldspaceChunkMgr& RenderingManager::getWorldspaceChunkMgr(ESM::RefId worldspace)
     {
         auto existingChunkMgr = mWorldspaceChunks.find(worldspace);
@@ -1418,6 +1438,31 @@ namespace MWRender
 
                 if (!lightManagersUpdated)
                     mViewer->getSceneData()->accept(visitor);
+            }
+            else if (it->first == "Shadows")
+            {
+                mShadowManager->setupShadowSettings(
+                    Settings::shadows(), mResourceSystem->getSceneManager()->getShaderManager());
+                mShadowManager->setIndoorShadowCastingMask(getIndoorShadowCastingMask());
+                mShadowManager->setOutdoorShadowCastingMask(getOutdoorShadowCastingMask());
+                if (mSky->isEnabled())
+                    mShadowManager->enableOutdoorMode();
+                else
+                    mShadowManager->enableIndoorMode(Settings::shadows());
+
+                Shader::ShaderManager::DefineMap shadowDefines = mShadowManager->getShadowDefines(Settings::shadows());
+                if (mAppliedShadowDefines != shadowDefines)
+                {
+                    auto defines = mResourceSystem->getSceneManager()->getShaderManager().getGlobalDefines();
+                    for (const auto& [key, value] : mAppliedShadowDefines)
+                        defines.erase(key);
+                    for (const auto& [key, value] : shadowDefines)
+                        defines[key] = value;
+                    mViewer->stopThreading();
+                    mResourceSystem->getSceneManager()->getShaderManager().setGlobalDefines(defines);
+                    mViewer->startThreading();
+                    mAppliedShadowDefines = shadowDefines;
+                }
             }
             else if (it->first == "Post Processing" && it->second == "enabled")
             {

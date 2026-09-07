@@ -22,7 +22,7 @@ add_openmw_dir (mwrender
     creatureanimation effectmanager util renderinginterface pathgrid rendermode weaponanimation screenshotmanager
     bulletdebugdraw globalmap characterpreview camera localmap water terrainstorage ripplesimulation
     renderbin actoranimation landmanager navmesh actorspaths recastmesh fogmanager objectpaging groundcover
-    postprocessor pingpongcull luminancecalculator pingpongcanvas transparentpass precipitationocclusion ripples
+    postprocessor pingpongcull luminancecalculator pingpongcanvas transparentpass opaqueblit waterawaretransparentbin precipitationocclusion ripples
     actorutil distortion animationpriority bonegroup blendmask animblendcontroller
     )
 
@@ -71,7 +71,7 @@ add_openmw_dir (mwlua
     )
 
 add_openmw_dir (mwsound
-    soundmanagerimp openaloutput ffmpegdecoder sound soundbuffer sounddecoder soundoutput
+    soundmanagerimp openaloutput ffmpegdecoder headcache warmqueue sound soundbuffer sounddecoder soundoutput
     loudness movieaudiofactory alext efx efxpresets regionsoundselector watersoundupdater
     )
 

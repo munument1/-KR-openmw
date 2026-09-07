@@ -120,7 +120,7 @@ namespace MWRender
 
         void setTextKeyListener(TextKeyListener* listener);
 
-        virtual bool updateCarriedLeftVisible(const int weaptype) const { return false; }
+        virtual bool updateCarriedLeftVisible(ESM::RefId weaptype) const { return false; }
 
         typedef std::unordered_map<std::string, osg::ref_ptr<osg::MatrixTransform>, Misc::StringUtils::CiHash,
             Misc::StringUtils::CiEqual>
@@ -241,6 +241,7 @@ namespace MWRender
         osg::ref_ptr<SceneUtil::LightSource> mExtraLightSource;
 
         float mAlpha;
+        float mActorFade;
 
         mutable std::map<std::string, float, std::less<>> mAnimVelocities;
 
@@ -465,8 +466,7 @@ namespace MWRender
         virtual void showCarriedLeft(bool show) {}
         virtual void setWeaponGroup(const std::string& group, bool relativeDuration) {}
         virtual void setVampire(bool vampire) {}
-        /// A value < 1 makes the animation translucent, 1.f = fully opaque
-        void setAlpha(float alpha);
+        void setAlpha(float actorFade, float alpha);
         virtual void setPitchFactor(float factor) {}
         virtual void attachArrow() {}
         virtual void detachArrow() {}

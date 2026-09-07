@@ -25,7 +25,6 @@
 #include <string>
 
 #include <osg/Camera>
-#include <osg/Material>
 #include <osg/MatrixTransform>
 #include <osg/PolygonOffset>
 
@@ -82,6 +81,8 @@ namespace SceneUtil {
         virtual void setSplitPointDeltaBias(double bias);
 
         virtual void setPolygonOffset(float factor, float units);
+
+        virtual void setMaximumShadowMapDistance(float distance);
 
         virtual void setShadowFadeStart(float shadowFadeStart);
 
@@ -192,6 +193,8 @@ namespace SceneUtil {
             ShadowData(ViewDependentData* vdd);
 
             virtual void releaseGLObjects(osg::State* = 0) const;
+
+            void updateTextureSize();
 
             ViewDependentData*                  _viewDependentData;
 
