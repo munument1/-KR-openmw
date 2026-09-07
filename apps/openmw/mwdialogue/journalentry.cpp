@@ -1,5 +1,6 @@
 #include "journalentry.hpp"
 
+#include <cstdint>
 #include <stdexcept>
 
 #include <components/esm3/journalentry.hpp>
@@ -13,6 +14,63 @@
 #include "../mwworld/globals.hpp"
 
 #include "../mwscript/interpretercontext.hpp"
+
+namespace
+{
+    bool containsUtf8Hangul(std::string_view text)
+    {
+        const auto* bytes = reinterpret_cast<const unsigned char*>(text.data());
+        for (std::size_t i = 0; i + 2 < text.size(); ++i)
+        {
+            if ((bytes[i] & 0xf0) != 0xe0 || (bytes[i + 1] & 0xc0) != 0x80 || (bytes[i + 2] & 0xc0) != 0x80)
+                continue;
+
+            const std::uint32_t codePoint = ((bytes[i] & 0x0f) << 12) | ((bytes[i + 1] & 0x3f) << 6)
+                | (bytes[i + 2] & 0x3f);
+            if ((codePoint >= 0x1100 && codePoint <= 0x11ff) || (codePoint >= 0x3130 && codePoint <= 0x318f)
+                || (codePoint >= 0xac00 && codePoint <= 0xd7a3))
+                return true;
+
+            i += 2;
+        }
+        return false;
+    }
+
+    bool containsNonAscii(std::string_view text)
+    {
+        for (const unsigned char byte : text)
+        {
+            if (byte >= 0x80)
+                return true;
+        }
+        return false;
+    }
+
+    void recoverLegacyKoreanJournalText(
+        const ESM::RefId& topic, const ESM::RefId& infoId, std::string& savedText)
+    {
+        // Older Korean builds could save already-mojibaked journal strings. Only consider saved text that has
+        // non-ASCII bytes but no Hangul, then require the same topic/INFO in the currently loaded content to contain
+        // Hangul before replacing it. Normal Korean entries, plain ASCII entries and unrelated content are untouched.
+        if (containsUtf8Hangul(savedText) || !containsNonAscii(savedText))
+            return;
+
+        const auto& dialogues = MWBase::Environment::get().getESMStore()->get<ESM::Dialogue>();
+        const ESM::Dialogue* dialogue = dialogues.search(topic);
+        if (!dialogue)
+            return;
+
+        for (const ESM::DialInfo& info : dialogue->mInfo)
+        {
+            if (info.mId != infoId || !containsUtf8Hangul(info.mResponse))
+                continue;
+
+            MWScript::InterpreterContext interpreterContext(nullptr, MWWorld::Ptr());
+            savedText = Interpreter::fixDefinesDialog(info.mResponse, interpreterContext);
+            return;
+        }
+    }
+}
 
 namespace MWDialogue
 {
@@ -71,6 +129,7 @@ namespace MWDialogue
         : Entry(record)
         , mTopic(record.mTopic)
     {
+        recoverLegacyKoreanJournalText(mTopic, mInfoId, mText);
     }
 
     void JournalEntry::write(ESM::JournalEntry& entry) const

@@ -1,7 +1,7 @@
 <MyGUI type="Resource" version="1.1">
     <Resource type="ResourceTrueTypeFont">
-        <Property key="Source" value="Galmuri11.ttf"/>
-        <Property key="Antialias" value="false"/>
+        <Property key="Source" value="GowunBatang-Bold.ttf"/>
+        <Property key="Antialias" value="true"/>
         <Property key="SubstituteCode" value="95"/>
         <Property key="TabWidth" value="8"/>
         <Property key="OffsetHeight" value="0"/>

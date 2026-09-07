@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - master
+      - feature/gowun-journal-compat
     paths:
       - .github/workflows/korean-baseline-051.yml
 
@@ -42,14 +43,23 @@ jobs:
 
         install -m 0644 _korean_port/files/data/fonts/DejaVuLGCSansMono.omwfont files/data/fonts/DejaVuLGCSansMono.omwfont
         install -m 0644 _korean_port/files/data/fonts/MysticCards.omwfont files/data/fonts/MysticCards.omwfont
-        install -m 0644 _korean_port/files/data/fonts/Galmuri11.omwfont files/data/fonts/Galmuri11.omwfont
-        install -m 0644 _korean_port/files/data/fonts/Galmuri11.ttf files/data/fonts/Galmuri11.ttf
-        install -m 0644 _korean_port/files/data/fonts/Galmuri11-OFL-1.1.md files/data/fonts/Galmuri11-OFL-1.1.md
+        install -m 0644 _korean_port/files/data/fonts/GowunBatang-OFL.txt files/data/fonts/GowunBatang-OFL.txt
+
+        curl --fail --retry 3 -L \
+          -o files/data/fonts/GowunBatang-Bold.ttf \
+          https://raw.githubusercontent.com/yangheeryu/Gowun-Batang/master/fonts/ttf/GowunBatang-Bold.ttf
+        expected_gowun_blob=5c89211eaffc15f718f050269e0ee8f76eefd644
+        actual_gowun_blob=$( { printf 'blob %s\0' "$(wc -c < files/data/fonts/GowunBatang-Bold.ttf)"; cat files/data/fonts/GowunBatang-Bold.ttf; } | sha1sum | awk '{print $1}')
+        test "$actual_gowun_blob" = "$expected_gowun_blob"
 
         grep -F 'parseHyperText(text, mTranslationDataStorage, true)' apps/openmw/mwdialogue/dialoguemanagerimp.cpp
         grep -F 'if (isValidUtf8WithHangul(raw))' components/esm3/esmreader.cpp
         grep -F 'utf8BomMode ? std::string_view(line)' components/translation/translation.cpp
-        grep -F 'Galmuri11.ttf' files/data/fonts/MysticCards.omwfont
+        grep -F 'recoverLegacyKoreanJournalText(mTopic, mInfoId, mText);' apps/openmw/mwdialogue/journalentry.cpp
+        grep -F 'containsUtf8Hangul(savedText) || !containsNonAscii(savedText)' apps/openmw/mwdialogue/journalentry.cpp
+        grep -F 'GowunBatang-Bold.ttf' files/data/fonts/MysticCards.omwfont
+        grep -F 'GowunBatang-Bold.ttf' files/data/fonts/DejaVuLGCSansMono.omwfont
+        grep -F 'DemonicLetters.ttf' files/data/fonts/DemonicLetters.omwfont
         git diff --check
 
     - name: Load dependency versions
