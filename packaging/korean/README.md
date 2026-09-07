@@ -11,19 +11,20 @@ It runs `install-korean.ps1`, which:
 2. backs up the existing `openmw.exe`;
 3. copies the Korean-patched `payload/openmw.exe`;
 4. backs up and installs the Korean font assets under `resources/vfs/fonts`;
-5. backs up an existing managed Korean translation folder and installs the translation payload to `<OpenMW>/mods/Morrowind_Korean_ReTranslation_v01`;
-6. runs `install-korean-config.ps1` to back up and update the user's `openmw.cfg`.
+5. backs up an existing managed Korean translation folder and installs the full translation payload to `<OpenMW>/mods/Morrowind_Korean_ReTranslation`;
+6. validates the bundled ESP/CEL/MRK/TOP files and `l10n` directory;
+7. runs `install-korean-config.ps1` to back up and update the user's `openmw.cfg`.
 
-The full installer therefore does not require the user to overwrite the engine, copy the translation ESP manually, or edit `openmw.cfg` manually.
+The full installer therefore does not require the user to overwrite the engine, copy the translation files manually, or edit `openmw.cfg` manually.
 
 ## Translation data registration
 
 For the full installer, `install-korean-config.ps1` receives the resolved OpenMW installation path and manages exactly one Korean data directory and plugin entry:
 
-- `data="<OpenMW>/mods/Morrowind_Korean_ReTranslation_v01"`
-- `content=Morrowind_Korean_ReTranslation_v01.esp`
+- `data="<OpenMW>/mods/Morrowind_Korean_ReTranslation"`
+- `content=Morrowind_Korean_ReTranslation.esp`
 
-Stale copies of the same Korean data path, duplicate Korean ESP entries, and the retired `Morrowind_Korean_Interior_CellNames_v01.esp` entry are removed. Other user `data=` and `content=` lines are preserved.
+Stale copies of the current Korean data path, the previous `Morrowind_Korean_ReTranslation_v01` data path, duplicate Korean ESP entries, and the retired `Morrowind_Korean_Interior_CellNames_v01.esp` entry are removed. Other user `data=` and `content=` lines are preserved.
 
 The Korean ESP is inserted after the last official `Morrowind.esm`, `Tribunal.esm`, or `Bloodmoon.esm` content entry when those masters are present. Existing third-party mod entries retain their relative order.
 
@@ -45,7 +46,10 @@ A complete release bundle must contain:
 - `korean-fallbacks.cfg`
 - `payload/openmw.exe`
 - `payload/resources/vfs/fonts/...`
-- `payload/mods/Morrowind_Korean_ReTranslation_v01/Morrowind_Korean_ReTranslation_v01.esp`
-- any additional files that belong to the same validated translation data package under that mod directory
+- `payload/mods/Morrowind_Korean_ReTranslation/Morrowind_Korean_ReTranslation.esp`
+- `payload/mods/Morrowind_Korean_ReTranslation/Morrowind_Korean_ReTranslation.cel`
+- `payload/mods/Morrowind_Korean_ReTranslation/Morrowind_Korean_ReTranslation.mrk`
+- `payload/mods/Morrowind_Korean_ReTranslation/Morrowind_Korean_ReTranslation.top`
+- `payload/mods/Morrowind_Korean_ReTranslation/l10n/...`
 
-Packaging must fail rather than publish if the translation ESP payload is missing.
+Packaging must fail rather than publish if the complete translation payload is missing.
