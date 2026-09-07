@@ -9,10 +9,16 @@ $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $payloadDir = Join-Path $scriptDir "payload"
 $payloadExe = Join-Path $payloadDir "openmw.exe"
 $payloadFonts = Join-Path $payloadDir "resources\vfs\fonts"
-$modFolderName = "Morrowind_Korean_ReTranslation_v01"
-$pluginFileName = "Morrowind_Korean_ReTranslation_v01.esp"
+$modFolderName = "Morrowind_Korean_ReTranslation"
+$pluginFileName = "Morrowind_Korean_ReTranslation.esp"
+$legacyModFolderName = "Morrowind_Korean_ReTranslation_v01"
+$requiredModFiles = @(
+    "Morrowind_Korean_ReTranslation.esp",
+    "Morrowind_Korean_ReTranslation.cel",
+    "Morrowind_Korean_ReTranslation.mrk",
+    "Morrowind_Korean_ReTranslation.top"
+)
 $payloadMod = Join-Path $payloadDir "mods\$modFolderName"
-$payloadEsp = Join-Path $payloadMod $pluginFileName
 $configUpdater = Join-Path $scriptDir "install-korean-config.ps1"
 $timestamp = Get-Date -Format "yyyyMMdd-HHmmss"
 
@@ -22,8 +28,14 @@ if (-not (Test-Path -LiteralPath $payloadExe -PathType Leaf)) {
 if (-not (Test-Path -LiteralPath $payloadFonts -PathType Container)) {
     throw "Korean font payload not found: $payloadFonts"
 }
-if (-not (Test-Path -LiteralPath $payloadEsp -PathType Leaf)) {
-    throw "Korean translation ESP payload not found: $payloadEsp"
+foreach ($requiredModFile in $requiredModFiles) {
+    $requiredPath = Join-Path $payloadMod $requiredModFile
+    if (-not (Test-Path -LiteralPath $requiredPath -PathType Leaf)) {
+        throw "Korean translation payload file not found: $requiredPath"
+    }
+}
+if (-not (Test-Path -LiteralPath (Join-Path $payloadMod "l10n") -PathType Container)) {
+    throw "Korean translation l10n payload not found: $payloadMod\l10n"
 }
 if (-not (Test-Path -LiteralPath $configUpdater -PathType Leaf)) {
     throw "Config updater not found: $configUpdater"
@@ -84,6 +96,7 @@ $targetExe = Join-Path $OpenMWPath "openmw.exe"
 $targetFonts = Join-Path $OpenMWPath "resources\vfs\fonts"
 $targetModsRoot = Join-Path $OpenMWPath "mods"
 $targetMod = Join-Path $targetModsRoot $modFolderName
+$legacyTargetMod = Join-Path $targetModsRoot $legacyModFolderName
 New-Item -ItemType Directory -Path $targetFonts -Force | Out-Null
 New-Item -ItemType Directory -Path $targetModsRoot -Force | Out-Null
 
@@ -96,7 +109,7 @@ Copy-Item -LiteralPath $payloadExe -Destination $targetExe -Force
 Write-Host "Installing Korean font assets..."
 Get-ChildItem -LiteralPath $payloadFonts -File | ForEach-Object {
     $destination = Join-Path $targetFonts $_.Name
-    if (Test-Path -LiteralPath $destination) {
+    if (Test-Path -LiteralPath $destination -PathType Leaf) {
         Copy-Item -LiteralPath $destination -Destination "$destination.korean-backup-$timestamp" -Force
     }
     Copy-Item -LiteralPath $_.FullName -Destination $destination -Force
@@ -110,11 +123,24 @@ if (Test-Path -LiteralPath $targetMod -PathType Container) {
     Remove-Item -LiteralPath $targetMod -Recurse -Force
 }
 
+$legacyModBackup = ""
+if (Test-Path -LiteralPath $legacyTargetMod -PathType Container) {
+    $legacyModBackup = "$legacyTargetMod.korean-backup-$timestamp"
+    Write-Host "Backing up retired Korean mod folder..."
+    Copy-Item -LiteralPath $legacyTargetMod -Destination $legacyModBackup -Recurse -Force
+    Remove-Item -LiteralPath $legacyTargetMod -Recurse -Force
+}
+
 Write-Host "Installing Korean translation data to OpenMW mods folder..."
 Copy-Item -LiteralPath $payloadMod -Destination $targetMod -Recurse -Force
 
-if (-not (Test-Path -LiteralPath (Join-Path $targetMod $pluginFileName) -PathType Leaf)) {
-    throw "Korean translation ESP was not installed correctly: $targetMod"
+foreach ($requiredModFile in $requiredModFiles) {
+    if (-not (Test-Path -LiteralPath (Join-Path $targetMod $requiredModFile) -PathType Leaf)) {
+        throw "Korean translation file was not installed correctly: $requiredModFile"
+    }
+}
+if (-not (Test-Path -LiteralPath (Join-Path $targetMod "l10n") -PathType Container)) {
+    throw "Korean translation l10n directory was not installed correctly: $targetMod"
 }
 
 Write-Host "Updating OpenMW user configuration..."
@@ -126,9 +152,12 @@ if ([string]::IsNullOrWhiteSpace($ConfigPath)) {
 
 Write-Host ""
 Write-Host "Korean OpenMW installation completed."
-Write-Host "OpenMW      : $OpenMWPath"
-Write-Host "Korean mod  : $targetMod"
+Write-Host "OpenMW       : $OpenMWPath"
+Write-Host "Korean mod   : $targetMod"
 Write-Host "Engine backup: $engineBackup"
 if (-not [string]::IsNullOrWhiteSpace($modBackup)) {
     Write-Host "Mod backup   : $modBackup"
+}
+if (-not [string]::IsNullOrWhiteSpace($legacyModBackup)) {
+    Write-Host "Legacy backup: $legacyModBackup"
 }
