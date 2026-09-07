@@ -1,9 +1,9 @@
-name: Video full runtime baseline
+name: Video full runtime subtitles
 
 on:
   push:
     branches:
-      - fix/video-full-runtime-baseline
+      - fix/video-subtitles-full-runtime
     paths:
       - .github/workflows/video-full-runtime-baseline.yml
       - korean/patches/**
@@ -16,7 +16,7 @@ permissions:
   actions: read
 
 jobs:
-  Windows-051-Full-Runtime:
+  Windows-051-Full-Runtime-Subtitles:
     uses: ./.github/workflows/windows.yml
     with:
       image: "2022"
