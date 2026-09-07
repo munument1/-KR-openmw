@@ -1,0 +1,92 @@
+name: Gowun Batang MysticCards font test
+
+on:
+  push:
+    branches:
+      - test/gowun-batang-mysticcards
+    paths:
+      - .github/workflows/gowun-batang-font-test.yml
+
+permissions:
+  contents: read
+
+jobs:
+  package-font-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Build Gowun Batang test payload
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p stage/resources/vfs/fonts
+
+          cp files/data/fonts/MysticCards.omwfont stage/resources/vfs/fonts/MysticCards.omwfont
+          sed -i 's/Source" value="Galmuri11.ttf"/Source" value="GowunBatang-Bold.ttf"/' stage/resources/vfs/fonts/MysticCards.omwfont
+          sed -i 's/Antialias" value="false"/Antialias" value="true"/' stage/resources/vfs/fonts/MysticCards.omwfont
+
+          curl -fL --retry 3 \
+            https://raw.githubusercontent.com/yangheeryu/Gowun-Batang/master/fonts/ttf/GowunBatang-Bold.ttf \
+            -o stage/resources/vfs/fonts/GowunBatang-Bold.ttf
+          curl -fL --retry 3 \
+            https://raw.githubusercontent.com/yangheeryu/Gowun-Batang/master/OFL.txt \
+            -o stage/resources/vfs/fonts/GowunBatang-OFL.txt
+
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib
+          p = Path('stage/resources/vfs/fonts/GowunBatang-Bold.ttf')
+          data = p.read_bytes()
+          blob = hashlib.sha1(f'blob {len(data)}\0'.encode() + data).hexdigest()
+          expected = '5c89211eaffc15f718f050269e0ee8f76eefd644'
+          if blob != expected:
+              raise SystemExit(f'official Git blob SHA mismatch: {blob} != {expected}')
+          print('Verified official GowunBatang-Bold.ttf Git blob:', blob)
+          PY
+
+          grep -F 'Source" value="GowunBatang-Bold.ttf"' stage/resources/vfs/fonts/MysticCards.omwfont
+          grep -F 'Antialias" value="true"' stage/resources/vfs/fonts/MysticCards.omwfont
+          test -s stage/resources/vfs/fonts/GowunBatang-OFL.txt
+
+          cat > stage/README-GOWUN-TEST.txt <<'EOF'
+          Gowun Batang Bold / MysticCards OpenMW test
+
+          Purpose:
+          - Test Gowun Batang Bold only for the MysticCards font slot.
+          - Other OpenMW Korean font slots remain unchanged.
+          - Antialiasing is enabled for the serif font.
+
+          Install:
+          1. Close OpenMW.
+          2. Back up <OpenMW>/resources/vfs/fonts/MysticCards.omwfont.
+          3. Copy the contents of this archive into the OpenMW installation folder.
+          4. Allow files to overwrite when asked.
+          5. Start OpenMW and check dialogue, journal, books, character-creation quiz, inventory, and small UI text.
+
+          Revert:
+          - Restore the backed-up MysticCards.omwfont. GowunBatang-Bold.ttf may be left in the folder or deleted.
+
+          Font source:
+          https://github.com/yangheeryu/Gowun-Batang
+          License: SIL Open Font License 1.1 (included as GowunBatang-OFL.txt)
+          EOF
+
+      - name: Create test zip
+        shell: bash
+        run: |
+          set -euo pipefail
+          (cd stage && zip -qr -9 ../GowunBatang-MysticCards-OpenMW-Test.zip .)
+          unzip -tq GowunBatang-MysticCards-OpenMW-Test.zip
+          sha256sum GowunBatang-MysticCards-OpenMW-Test.zip > GowunBatang-MysticCards-OpenMW-Test.zip.sha256
+          cat GowunBatang-MysticCards-OpenMW-Test.zip.sha256
+
+      - name: Upload test artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: gowun-batang-mysticcards-test
+          path: |
+            GowunBatang-MysticCards-OpenMW-Test.zip
+            GowunBatang-MysticCards-OpenMW-Test.zip.sha256
+          if-no-files-found: error
