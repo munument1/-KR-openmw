@@ -1,0 +1,27 @@
+name: Video full runtime baseline
+
+on:
+  push:
+    branches:
+      - fix/video-full-runtime-baseline
+    paths:
+      - .github/workflows/video-full-runtime-baseline.yml
+      - korean/patches/**
+      - files/data/fonts/**
+      - .github/workflows/windows.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  Windows-051-Full-Runtime:
+    uses: ./.github/workflows/windows.yml
+    with:
+      image: "2022"
+      msvc: "2022"
+      source_repository: OpenMW/openmw
+      source_ref: openmw-0.51.0
+      korean_overlay: true
+      package: false
