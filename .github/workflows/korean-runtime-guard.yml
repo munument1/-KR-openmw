@@ -9,6 +9,8 @@ on:
       - apps/openmw/mwdialogue/journalentry.cpp
       - apps/openmw/mwdialogue/keywordsearch.cpp
       - apps/openmw/mwdialogue/keywordsearch.hpp
+      - apps/openmw/mwgui/videowidget.cpp
+      - apps/openmw/mwgui/videowidget.hpp
       - components/esm3/esmreader.cpp
       - components/translation/translation.cpp
       - korean/patches/**
@@ -21,6 +23,8 @@ on:
       - apps/openmw/mwdialogue/journalentry.cpp
       - apps/openmw/mwdialogue/keywordsearch.cpp
       - apps/openmw/mwdialogue/keywordsearch.hpp
+      - apps/openmw/mwgui/videowidget.cpp
+      - apps/openmw/mwgui/videowidget.hpp
       - components/esm3/esmreader.cpp
       - components/translation/translation.cpp
       - korean/patches/**
@@ -45,7 +49,8 @@ jobs:
             korean/patches/0001-cjk-topic-discovery.patch \
             korean/patches/0002-utf8-bom-sidecars.patch \
             korean/patches/0003-mixed-utf8-esm-reader.patch \
-            korean/patches/0004-legacy-korean-journal-recovery.patch; do
+            korean/patches/0004-legacy-korean-journal-recovery.patch \
+            korean/patches/0005-video-subtitles.patch; do
             echo "Reverse-checking $patch"
             git apply --reverse --check "$patch"
           done
@@ -62,3 +67,6 @@ jobs:
           grep -F 'if (isValidUtf8WithHangul(raw))' components/esm3/esmreader.cpp
           grep -F 'void recoverLegacyKoreanJournalText(' apps/openmw/mwdialogue/journalentry.cpp
           grep -F 'recoverLegacyKoreanJournalText(mTopic, mInfoId, mText);' apps/openmw/mwdialogue/journalentry.cpp
+          grep -F 'loadSubtitles(video);' apps/openmw/mwgui/videowidget.cpp
+          grep -F 'subtitlePath = video.substr(0, dot) + ".srt";' apps/openmw/mwgui/videowidget.cpp
+          grep -F 'mPlayer->getCurrentTime()' apps/openmw/mwgui/videowidget.cpp
