@@ -2,6 +2,8 @@
 #define OPENMW_MWGUI_VIDEOWIDGET_H
 
 #include <memory>
+#include <string>
+#include <vector>
 
 #include <MyGUI_Widget.h>
 
@@ -13,6 +15,11 @@ namespace Video
 namespace VFS
 {
     class Manager;
+}
+
+namespace MyGUI
+{
+    class TextBox;
 }
 
 namespace MWGui
@@ -60,9 +67,25 @@ namespace MWGui
         void autoResize(bool stretch);
 
     private:
+        struct SubtitleCue
+        {
+            double mStart = 0.0;
+            double mEnd = 0.0;
+            std::string mText;
+        };
+
+        void loadSubtitles(const std::string& video);
+        void updateSubtitle();
+        void setSubtitleCaption(const std::string& caption);
+        void layoutSubtitle();
+
         const VFS::Manager* mVFS;
         std::unique_ptr<MyGUI::ITexture> mTexture;
         std::unique_ptr<Video::VideoPlayer> mPlayer;
+        MyGUI::TextBox* mSubtitleShadow;
+        MyGUI::TextBox* mSubtitleText;
+        std::vector<SubtitleCue> mSubtitles;
+        std::string mSubtitleCaption;
     };
 
 }
