@@ -1,40 +1,46 @@
-# Portable Korean OpenMW installer payload
+# KR3 Windows installer payload
 
-This directory contains the Windows installer-side files for the Korean OpenMW runtime package.
+이 디렉터리는 OpenMW 0.51.0 Korean Support KR3의 Windows 설치기 구성 파일을 관리합니다.
 
-## User-facing installer
+## 설치 흐름
 
-`Install-Korean.bat` is the primary entry point for release bundles.
-It runs `install-korean.ps1`, which:
+`Install-Korean.bat`이 사용자 진입점이며 `install-korean.ps1`을 실행합니다.
 
-1. locates or asks for the OpenMW installation directory;
-2. backs up the existing `openmw.exe`;
-3. copies the Korean-patched `payload/openmw.exe`;
-4. backs up and installs the Korean font assets under `resources/vfs/fonts`;
-5. backs up an existing managed Korean translation folder and installs the full translation payload to `<OpenMW>/mods/Morrowind_Korean_ReTranslation`;
-6. validates the bundled ESP/CEL/MRK/TOP files, `l10n` directory, and Korean video SRT files;
-7. runs `install-korean-config.ps1` to back up and update the user's `openmw.cfg`.
+설치기는 다음 작업을 수행합니다.
 
-The full installer therefore does not require the user to overwrite the engine, copy the translation files manually, install the video subtitles separately, or edit `openmw.cfg` manually.
+1. 공식 OpenMW 0.51.0 설치 경로를 찾거나 사용자에게 입력을 요청합니다.
+2. 기존 `openmw.exe`를 백업하고 한국어 패치가 적용된 `payload/openmw.exe`를 설치합니다.
+3. 한국어 폰트 파일을 `resources/vfs/fonts`에 백업 후 설치합니다.
+4. 기존 한국어 모드 폴더를 백업하고 `payload/mods/Morrowind_Korean_ReTranslation`을 설치합니다.
+5. ESP/CEL/MRK/TOP, `l10n`, 영상 SRT 10개를 검증합니다.
+6. `install-korean-config.ps1`로 사용자 `openmw.cfg`를 백업하고 갱신합니다.
 
-## Translation data registration
+KR3 compact 패키지는 공식 OpenMW 0.51.0에 이미 포함된 DLL/도구를 중복 배포하지 않습니다.
 
-For the full installer, `install-korean-config.ps1` receives the resolved OpenMW installation path and manages exactly one Korean data directory and plugin entry:
+## openmw.cfg 관리
+
+설치기는 다음 한국어 항목만 관리합니다.
 
 - `data="<OpenMW>/mods/Morrowind_Korean_ReTranslation"`
 - `content=Morrowind_Korean_ReTranslation.esp`
+- `korean-fallbacks.cfg`의 한국어 fallback/font 값
+- Morrowind 영상 fallback (`Movies_New_Game=mw_intro.bik` 등)
 
-Stale copies of the current Korean data path, the previous `Morrowind_Korean_ReTranslation_v01` data path, duplicate Korean ESP entries, and the retired `Morrowind_Korean_Interior_CellNames_v01.esp` entry are removed. Other user `data=` and `content=` lines are preserved.
+다른 사용자의 `data=`, `content=`, archive, 모드 상대 순서와 기존 `encoding=` 값은 보존합니다. 전역 `encoding=utf8`은 추가하지 않습니다.
 
-The Korean ESP is inserted after the last official `Morrowind.esm`, `Tribunal.esm`, or `Bloodmoon.esm` content entry when those masters are present. Existing third-party mod entries retain their relative order.
+이전 설치에서 한국어 관리 블록이 닫히지 않은 상태를 발견하면 먼저 `openmw.cfg`를 백업한 뒤 해당 관리 블록만 복구합니다.
 
-## Video subtitles
+## 영상 자막
 
-The Korean OpenMW runtime patch automatically looks for an SRT with the same VFS path and basename as a playing BIK video. For example, `video/mw_intro.bik` uses `video/mw_intro.srt` when that subtitle file is present.
+`0005-video-subtitles.patch`는 재생 중인 BIK와 같은 VFS 경로/이름의 UTF-8 SRT를 자동 탐색합니다.
 
-The release bundle installs the subtitle files under `<OpenMW>/mods/Morrowind_Korean_ReTranslation/video`. Original BIK files are not modified or redistributed. If an SRT is absent, video playback behaves as upstream OpenMW.
+예:
 
-The KR bundle currently includes subtitles for three Morrowind videos and seven Bloodmoon videos:
+```text
+video/mw_intro.bik -> video/mw_intro.srt
+```
+
+배포판에는 다음 10개 자막이 포함됩니다.
 
 - `mw_intro.srt`
 - `mw_cavern.srt`
@@ -47,29 +53,24 @@ The KR bundle currently includes subtitles for three Morrowind videos and seven 
 - `bm_frostgiant1.srt`
 - `bm_frostgiant2.srt`
 
-## Config updater
+원본 BIK 파일은 수정하거나 재배포하지 않습니다.
 
-`install-korean-config.ps1` targets `%Documents%\My Games\OpenMW\openmw.cfg` by default and accepts `-ConfigPath` for portable/custom setups.
+## 필수 배포 구조
 
-When called without `-OpenMWPath` (for example through `Install-Korean-Config.bat`), it remains a config-only helper and manages only the Korean `fallback=` values. It preserves unrelated `data=`, `content=`, archives, mod order, user settings, and the existing global encoding value.
+```text
+Install-Korean.bat
+install-korean.ps1
+install-korean-config.ps1
+korean-fallbacks.cfg
+payload/openmw.exe
+payload/resources/vfs/fonts/...
+payload/mods/Morrowind_Korean_ReTranslation/
+  Morrowind_Korean_ReTranslation.esp
+  Morrowind_Korean_ReTranslation.cel
+  Morrowind_Korean_ReTranslation.mrk
+  Morrowind_Korean_ReTranslation.top
+  l10n/...
+  video/*.srt
+```
 
-When a final `encoding=` line exists, the managed Korean fallback block is inserted immediately before it. If no `encoding=` line exists, the block is appended at the end.
-
-## Required release bundle layout
-
-A complete release bundle must contain:
-
-- `Install-Korean.bat`
-- `install-korean.ps1`
-- `install-korean-config.ps1`
-- `korean-fallbacks.cfg`
-- `payload/openmw.exe`
-- `payload/resources/vfs/fonts/...`
-- `payload/mods/Morrowind_Korean_ReTranslation/Morrowind_Korean_ReTranslation.esp`
-- `payload/mods/Morrowind_Korean_ReTranslation/Morrowind_Korean_ReTranslation.cel`
-- `payload/mods/Morrowind_Korean_ReTranslation/Morrowind_Korean_ReTranslation.mrk`
-- `payload/mods/Morrowind_Korean_ReTranslation/Morrowind_Korean_ReTranslation.top`
-- `payload/mods/Morrowind_Korean_ReTranslation/l10n/...`
-- `payload/mods/Morrowind_Korean_ReTranslation/video/*.srt`
-
-Packaging must fail rather than publish if the complete translation and subtitle payload is missing.
+필수 번역 데이터나 자막이 누락된 패키지는 배포하지 않아야 합니다.
