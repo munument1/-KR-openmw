@@ -12,14 +12,20 @@ $dataBeginMarker = "# BEGIN OPENMW KOREAN MANAGED DATA"
 $dataEndMarker = "# END OPENMW KOREAN MANAGED DATA"
 $contentBeginMarker = "# BEGIN OPENMW KOREAN MANAGED CONTENT"
 $contentEndMarker = "# END OPENMW KOREAN MANAGED CONTENT"
-$modFolderName = "Morrowind_Korean_ReTranslation_v01"
-$pluginFileName = "Morrowind_Korean_ReTranslation_v01.esp"
-$retiredPluginFileName = "Morrowind_Korean_Interior_CellNames_v01.esp"
+$modFolderName = "Morrowind_Korean_ReTranslation"
+$pluginFileName = "Morrowind_Korean_ReTranslation.esp"
+$legacyModFolderNames = @(
+    "Morrowind_Korean_ReTranslation_v01"
+)
+$retiredPluginFileNames = @(
+    "Morrowind_Korean_ReTranslation_v01.esp",
+    "Morrowind_Korean_Interior_CellNames_v01.esp"
+)
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $payloadPath = Join-Path $scriptDir "korean-fallbacks.cfg"
 $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
 
-if (-not (Test-Path -LiteralPath $payloadPath)) {
+if (-not (Test-Path -LiteralPath $payloadPath -PathType Leaf)) {
     throw "Korean fallback payload not found: $payloadPath"
 }
 
@@ -29,7 +35,7 @@ if ([string]::IsNullOrWhiteSpace($ConfigPath)) {
 }
 
 $ConfigPath = [System.IO.Path]::GetFullPath($ConfigPath)
-if (-not (Test-Path -LiteralPath $ConfigPath)) {
+if (-not (Test-Path -LiteralPath $ConfigPath -PathType Leaf)) {
     throw "OpenMW config not found: $ConfigPath`nRun OpenMW once first, or pass -ConfigPath <path>."
 }
 
@@ -56,7 +62,6 @@ foreach ($line in $payloadLines) {
         [void]$managedKeys.Add($Matches[1].Trim())
     }
 }
-
 if ($managedKeys.Count -eq 0) {
     throw "No managed fallback keys were found in $payloadPath"
 }
@@ -99,14 +104,22 @@ foreach ($line in $currentLines) {
     if ($manageMod) {
         if ($line -match '^\s*content\s*=\s*(.+?)\s*$') {
             $contentName = $Matches[1].Trim().Trim('"')
-            if ($contentName -ieq $pluginFileName -or $contentName -ieq $retiredPluginFileName) {
+            if ($contentName -ieq $pluginFileName -or $retiredPluginFileNames -icontains $contentName) {
                 continue
             }
         }
 
         if ($line -match '^\s*data\s*=\s*(.*)$') {
-            $dataValue = $Matches[1].Trim().Trim('"').Replace('\', '/')
-            if ($dataValue.TrimEnd('/') -match ('(?i)(^|/)mods/' + [regex]::Escape($modFolderName) + '$')) {
+            $dataValue = $Matches[1].Trim().Trim('"').Replace('\', '/').TrimEnd('/')
+            $managedDataPath = $false
+            foreach ($folderName in @($modFolderName) + $legacyModFolderNames) {
+                $pattern = '(?i)(^|/)mods/' + [regex]::Escape($folderName) + '$'
+                if ($dataValue -match $pattern) {
+                    $managedDataPath = $true
+                    break
+                }
+            }
+            if ($managedDataPath) {
                 continue
             }
         }
