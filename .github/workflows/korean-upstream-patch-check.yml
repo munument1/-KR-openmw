@@ -38,7 +38,8 @@ jobs:
           for patch in \
             "$GITHUB_WORKSPACE/korean/patches/0001-cjk-topic-discovery.patch" \
             "$GITHUB_WORKSPACE/korean/patches/0002-utf8-bom-sidecars.patch" \
-            "$GITHUB_WORKSPACE/korean/patches/0003-mixed-utf8-esm-reader.patch"; do
+            "$GITHUB_WORKSPACE/korean/patches/0003-mixed-utf8-esm-reader.patch" \
+            "$GITHUB_WORKSPACE/korean/patches/0004-legacy-korean-journal-recovery.patch"; do
             echo "Checking $(basename "$patch")"
             git -C "$target" apply --check "$patch"
             git -C "$target" apply "$patch"
@@ -55,6 +56,8 @@ jobs:
           grep -F 'utf8BomMode ? std::string_view(line)' "$target/components/translation/translation.cpp"
           grep -F 'bool isValidUtf8WithHangul(std::string_view input)' "$target/components/esm3/esmreader.cpp"
           grep -F 'if (isValidUtf8WithHangul(raw))' "$target/components/esm3/esmreader.cpp"
+          grep -F 'void recoverLegacyKoreanJournalText(' "$target/apps/openmw/mwdialogue/journalentry.cpp"
+          grep -F 'recoverLegacyKoreanJournalText(mTopic, mInfoId, mText);' "$target/apps/openmw/mwdialogue/journalentry.cpp"
 
       - name: Show patched files
         run: |
