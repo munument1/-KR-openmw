@@ -1,0 +1,163 @@
+name: Publish KR3
+
+on:
+  push:
+    branches:
+      - release/kr3
+    paths:
+      - .github/workflows/publish-kr3.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TAG: openmw-0.51.0-kr3
+      ASSET: Morrowind-Korean-OpenMW-0.51.0-KR3-Full.zip
+      BASE_TAG: openmw-0.51.0-kr2
+      BASE_ASSET: Morrowind-Korean-OpenMW-0.51.0-KR2-Full.zip
+      RUNTIME_RUN: "34120968862"
+      RUNTIME_ARTIFACT: openmw-windows-2022-bd27b29e8571ee393003d3f21242ae4badf0b390
+      MOD_DIR: payload/mods/Morrowind_Korean_ReTranslation
+      EXPECTED_ESP_SHA256: e19f85d66d980ed5716682c711b0beaa1c7fe9decbdc06f2f95f0cb9a07ee78d
+    steps:
+      - name: Checkout KR3 source
+        uses: actions/checkout@v6
+
+      - name: Assemble validated KR3 package
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf work out
+          mkdir -p work/base work/pkg work/runtime out
+
+          gh release download "$BASE_TAG" --repo "$GITHUB_REPOSITORY" --pattern "$BASE_ASSET" --dir work/base --clobber
+          unzip -q "work/base/$BASE_ASSET" -d work/pkg
+
+          # KR3 ships the matching full Windows runtime set from the build that passed
+          # OpenMW/components/OpenMW-CS tests and was then verified in-game with subtitles.
+          gh run download "$RUNTIME_RUN" --repo "$GITHUB_REPOSITORY" --name "$RUNTIME_ARTIFACT" --dir work/runtime
+          rm -rf work/pkg/payload/runtime work/pkg/payload/openmw.exe work/pkg/payload/resources
+          mkdir -p work/pkg/payload/runtime
+          cp -a work/runtime/. work/pkg/payload/runtime/
+
+          install -m 0644 packaging/korean/install-korean.ps1 work/pkg/install-korean.ps1
+          install -m 0644 packaging/korean/install-korean-config.ps1 work/pkg/install-korean-config.ps1
+          install -m 0644 packaging/korean/korean-fallbacks.cfg work/pkg/korean-fallbacks.cfg
+          install -m 0644 packaging/korean/Install-Korean.bat work/pkg/Install-Korean.bat
+
+          mkdir -p "work/pkg/$MOD_DIR/video"
+          rm -f "work/pkg/$MOD_DIR/video"/*.srt
+          install -m 0644 korean/subtitles/video/*.srt "work/pkg/$MOD_DIR/video/"
+
+          cat > work/pkg/README-KOREAN.txt <<'EOF'
+          OpenMW 0.51.0 Korean Support KR3
+
+          KR3 changes
+          - Ships a matching full OpenMW 0.51.0 Windows runtime set instead of replacing only openmw.exe.
+          - Keeps the Korean runtime patches 0001-0005, including external UTF-8 SRT video subtitles.
+          - Restores Morrowind movie fallbacks such as Movies_New_Game=mw_intro.bik.
+          - Repairs interrupted/unclosed Korean managed blocks in openmw.cfg after making a backup.
+          - Includes the current Korean ESP/CEL/MRK/TOP/l10n payload and 10 video SRT files.
+          - Keeps Gowun Batang Bold for the Korean font slots; DemonicLetters remains the Daedric font.
+          - Does not require global encoding=utf8.
+
+          Installation
+          1. Install official OpenMW 0.51.0 and run it once.
+          2. Extract this ZIP.
+          3. Run Install-Korean.bat.
+
+          The installer backs up overwritten runtime files, the Korean mod folder, and openmw.cfg.
+          Original Morrowind/Bloodmoon BIK files are not redistributed.
+          EOF
+          sed -i 's/^          //' work/pkg/README-KOREAN.txt
+
+          cat > work/pkg/CI-ID.txt <<EOF
+          OpenMW 0.51.0 Korean Support KR3
+          Package source commit: $GITHUB_SHA
+          Full runtime run: $RUNTIME_RUN
+          Full runtime artifact: $RUNTIME_ARTIFACT
+          Runtime patchset: 0001-0005
+          Video subtitles: 10 UTF-8 SRT files
+          Movie fallback: Movies_New_Game=mw_intro.bik
+          EOF
+
+          # Package integrity checks.
+          test -f work/pkg/payload/runtime/openmw.exe
+          for f in avcodec-62.dll avformat-62.dll avutil-60.dll swresample-6.dll MyGUIEngine.dll osg.dll osgDB.dll; do
+            test -f "work/pkg/payload/runtime/$f"
+          done
+          test ! -e work/pkg/payload/openmw.exe
+          test -f "work/pkg/$MOD_DIR/Morrowind_Korean_ReTranslation.esp"
+          test -f "work/pkg/$MOD_DIR/Morrowind_Korean_ReTranslation.cel"
+          test -f "work/pkg/$MOD_DIR/Morrowind_Korean_ReTranslation.mrk"
+          test -f "work/pkg/$MOD_DIR/Morrowind_Korean_ReTranslation.top"
+          test -d "work/pkg/$MOD_DIR/l10n"
+          test "$(find "work/pkg/$MOD_DIR/video" -maxdepth 1 -type f -name '*.srt' | wc -l)" -eq 10
+          echo "$EXPECTED_ESP_SHA256  work/pkg/$MOD_DIR/Morrowind_Korean_ReTranslation.esp" | sha256sum -c -
+          grep -F 'fallback=Movies_New_Game,mw_intro.bik' work/pkg/korean-fallbacks.cfg
+          grep -F 'payload\runtime' work/pkg/install-korean.ps1
+          grep -F 'Recovered unclosed Korean managed block' work/pkg/install-korean-config.ps1
+
+          (
+            cd work/pkg
+            zip -q -r "../../out/$ASSET" .
+          )
+          sha256sum "out/$ASSET" | sed 's#out/##' > "out/$ASSET.sha256"
+          unzip -t "out/$ASSET" >/dev/null
+          cat "out/$ASSET.sha256"
+
+      - name: Publish KR3 release
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > out/release-notes.md <<'EOF'
+          # OpenMW 0.51.0 Korean Support KR3
+
+          OpenMW 0.51.0용 모로윈드 한국어 통합 지원 패키지입니다.
+
+          ## KR3 핵심 변경
+          - `openmw.exe` 단독 교체 대신 **동일 빌드의 전체 Windows 런타임 세트**를 함께 설치합니다.
+          - 잘못된 샘플 영상 설정을 수정하여 `Movies_New_Game=mw_intro.bik` 등 원본 모로윈드 영상 fallback을 복구했습니다.
+          - OpenMW 영상 재생기에 외부 UTF-8 SRT 자막 지원을 포함합니다.
+          - 본편 3개 + Bloodmoon 7개, 총 **10개 한국어 영상 자막**을 포함합니다.
+          - 중간에 끊긴 이전 설치로 `openmw.cfg`의 한국어 관리 블록이 닫히지 않은 경우 백업 후 자동 복구합니다.
+          - 현재 번역 `ESP / CEL / MRK / TOP / l10n`과 Gowun Batang 한국어 폰트를 포함합니다.
+
+          ## 실게임 확인
+          - `mw_intro.bik` 영상 재생 정상
+          - 인트로 한국어 SRT 자막 표시 정상
+          - 동일 런타임 세트 기반으로 영상과 자막을 함께 확인했습니다.
+
+          ## 설치
+          1. 공식 OpenMW 0.51.0을 설치하고 한 번 실행합니다.
+          2. `Morrowind-Korean-OpenMW-0.51.0-KR3-Full.zip`을 압축 해제합니다.
+          3. `Install-Korean.bat`을 실행합니다.
+
+          설치기는 기존 런타임 파일, 한국어 모드, `openmw.cfg`를 백업합니다. 전역 `encoding=utf8` 설정은 필요하지 않습니다.
+          EOF
+          sed -i 's/^          //' out/release-notes.md
+
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$TAG" "out/$ASSET" "out/$ASSET.sha256" --repo "$GITHUB_REPOSITORY" --clobber
+            gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --title "OpenMW 0.51.0 Korean Support KR3" --notes-file out/release-notes.md
+          else
+            gh release create "$TAG" "out/$ASSET" "out/$ASSET.sha256" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "OpenMW 0.51.0 Korean Support KR3" --notes-file out/release-notes.md
+          fi
+
+      - name: Verify published KR3 assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          local_sha=$(cut -d' ' -f1 "out/$ASSET.sha256")
+          remote_digest=$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$TAG" --jq '.assets[] | select(.name == env.ASSET) | .digest')
+          remote_size=$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$TAG" --jq '.assets[] | select(.name == env.ASSET) | .size')
+          test "$remote_digest" = "sha256:$local_sha"
+          test "$remote_size" -gt 50000000
+          gh api "repos/$GITHUB_REPOSITORY/releases/tags/$TAG" --jq '.assets[] | [.name, .size, .digest] | @tsv'
+          echo "Published $ASSET with $remote_digest"
