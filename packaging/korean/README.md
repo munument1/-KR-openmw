@@ -12,10 +12,10 @@ It runs `install-korean.ps1`, which:
 3. copies the Korean-patched `payload/openmw.exe`;
 4. backs up and installs the Korean font assets under `resources/vfs/fonts`;
 5. backs up an existing managed Korean translation folder and installs the full translation payload to `<OpenMW>/mods/Morrowind_Korean_ReTranslation`;
-6. validates the bundled ESP/CEL/MRK/TOP files and `l10n` directory;
+6. validates the bundled ESP/CEL/MRK/TOP files, `l10n` directory, and Korean video SRT files;
 7. runs `install-korean-config.ps1` to back up and update the user's `openmw.cfg`.
 
-The full installer therefore does not require the user to overwrite the engine, copy the translation files manually, or edit `openmw.cfg` manually.
+The full installer therefore does not require the user to overwrite the engine, copy the translation files manually, install the video subtitles separately, or edit `openmw.cfg` manually.
 
 ## Translation data registration
 
@@ -27,6 +27,25 @@ For the full installer, `install-korean-config.ps1` receives the resolved OpenMW
 Stale copies of the current Korean data path, the previous `Morrowind_Korean_ReTranslation_v01` data path, duplicate Korean ESP entries, and the retired `Morrowind_Korean_Interior_CellNames_v01.esp` entry are removed. Other user `data=` and `content=` lines are preserved.
 
 The Korean ESP is inserted after the last official `Morrowind.esm`, `Tribunal.esm`, or `Bloodmoon.esm` content entry when those masters are present. Existing third-party mod entries retain their relative order.
+
+## Video subtitles
+
+The Korean OpenMW runtime patch automatically looks for an SRT with the same VFS path and basename as a playing BIK video. For example, `video/mw_intro.bik` uses `video/mw_intro.srt` when that subtitle file is present.
+
+The release bundle installs the subtitle files under `<OpenMW>/mods/Morrowind_Korean_ReTranslation/video`. Original BIK files are not modified or redistributed. If an SRT is absent, video playback behaves as upstream OpenMW.
+
+The KR bundle currently includes subtitles for three Morrowind videos and seven Bloodmoon videos:
+
+- `mw_intro.srt`
+- `mw_cavern.srt`
+- `mw_end.srt`
+- `bm_bearhunt1.srt`
+- `bm_bearhunt2.srt`
+- `bm_ceremony1.srt`
+- `bm_ceremony2.srt`
+- `bm_endgame.srt`
+- `bm_frostgiant1.srt`
+- `bm_frostgiant2.srt`
 
 ## Config updater
 
@@ -51,5 +70,6 @@ A complete release bundle must contain:
 - `payload/mods/Morrowind_Korean_ReTranslation/Morrowind_Korean_ReTranslation.mrk`
 - `payload/mods/Morrowind_Korean_ReTranslation/Morrowind_Korean_ReTranslation.top`
 - `payload/mods/Morrowind_Korean_ReTranslation/l10n/...`
+- `payload/mods/Morrowind_Korean_ReTranslation/video/*.srt`
 
-Packaging must fail rather than publish if the complete translation payload is missing.
+Packaging must fail rather than publish if the complete translation and subtitle payload is missing.
