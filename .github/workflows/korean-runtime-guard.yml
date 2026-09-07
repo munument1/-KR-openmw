@@ -6,6 +6,7 @@ on:
       - master
     paths:
       - apps/openmw/mwdialogue/dialoguemanagerimp.cpp
+      - apps/openmw/mwdialogue/journalentry.cpp
       - apps/openmw/mwdialogue/keywordsearch.cpp
       - apps/openmw/mwdialogue/keywordsearch.hpp
       - components/esm3/esmreader.cpp
@@ -17,6 +18,7 @@ on:
       - master
     paths:
       - apps/openmw/mwdialogue/dialoguemanagerimp.cpp
+      - apps/openmw/mwdialogue/journalentry.cpp
       - apps/openmw/mwdialogue/keywordsearch.cpp
       - apps/openmw/mwdialogue/keywordsearch.hpp
       - components/esm3/esmreader.cpp
@@ -42,7 +44,8 @@ jobs:
           for patch in \
             korean/patches/0001-cjk-topic-discovery.patch \
             korean/patches/0002-utf8-bom-sidecars.patch \
-            korean/patches/0003-mixed-utf8-esm-reader.patch; do
+            korean/patches/0003-mixed-utf8-esm-reader.patch \
+            korean/patches/0004-legacy-korean-journal-recovery.patch; do
             echo "Reverse-checking $patch"
             git apply --reverse --check "$patch"
           done
@@ -57,4 +60,5 @@ jobs:
           grep -F 'utf8BomMode ? std::string_view(line)' components/translation/translation.cpp
           grep -F 'bool isValidUtf8WithHangul(std::string_view input)' components/esm3/esmreader.cpp
           grep -F 'if (isValidUtf8WithHangul(raw))' components/esm3/esmreader.cpp
-          grep -F 'mEncoder->getUtf8(raw)' components/esm3/esmreader.cpp
+          grep -F 'void recoverLegacyKoreanJournalText(' apps/openmw/mwdialogue/journalentry.cpp
+          grep -F 'recoverLegacyKoreanJournalText(mTopic, mInfoId, mText);' apps/openmw/mwdialogue/journalentry.cpp
