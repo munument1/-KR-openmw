@@ -1,5 +1,5 @@
-# Publish KR2 release
-name: Korean 0.51 KR2 installer package
+# Publish the validated KR2 full-runtime package
+name: Korean 0.51 KR2 full runtime release
 
 on:
   push:
@@ -7,149 +7,265 @@ on:
       - master
     paths:
       - .github/workflows/korean-package-051.yml
+  workflow_dispatch:
 
 permissions:
   contents: write
   actions: read
 
 env:
-  TARGET_RUN_ID: "34065368527"
-  TARGET_ARTIFACT: "korean-openmw-0.51-targeted-c6a7845841c5eab8207f45aa86151a045ee6a09b"
+  TAG: "openmw-0.51.0-kr2"
   PACKAGE_NAME: "Morrowind-Korean-OpenMW-0.51.0-KR2-Full.zip"
+  FULL_RUNTIME_RUN: "34120968862"
+  FULL_RUNTIME_ARTIFACT: "openmw-windows-2022-bd27b29e8571ee393003d3f21242ae4badf0b390"
+  EXPECTED_OPENMW_SHA256: "cc86fb04fecf3d40c4459011b7a7232a9904fbf796a66269fbee4df5ef243b61"
+  EXPECTED_ESP_SHA256: "e19f85d66d980ed5716682c711b0beaa1c7fe9decbdc06f2f95f0cb9a07ee78d"
+  GOWUN_BLOB_SHA: "5c89211eaffc15f718f050269e0ee8f76eefd644"
+  MOD_DIR: "payload/mods/Morrowind_Korean_ReTranslation"
 
 jobs:
   Package-Korean-Windows:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout Korean packaging assets
+    - name: Checkout KR2 packaging source
       uses: actions/checkout@v6
 
-    - name: Download validated targeted openmw.exe
+    - name: Download current integrated translation payload and validated full runtime
       env:
         GH_TOKEN: ${{ github.token }}
       shell: bash
       run: |
         set -euo pipefail
-        mkdir -p targeted
-        gh run download "$TARGET_RUN_ID" \
-          --repo "$GITHUB_REPOSITORY" \
-          --name "$TARGET_ARTIFACT" \
-          --dir targeted
-        test -f targeted/openmw.exe
+        rm -rf work stage dist
+        mkdir -p work/base work/runtime stage dist
 
-    - name: Stage BAT installer package
+        gh release download "$TAG" \
+          --repo "$GITHUB_REPOSITORY" \
+          --pattern "$PACKAGE_NAME" \
+          --dir work/base \
+          --clobber
+        unzip -q "work/base/$PACKAGE_NAME" -d work/base/unpacked
+
+        gh run download "$FULL_RUNTIME_RUN" \
+          --repo "$GITHUB_REPOSITORY" \
+          --name "$FULL_RUNTIME_ARTIFACT" \
+          --dir work/runtime
+
+    - name: Stage final KR2 package
       shell: bash
       run: |
         set -euo pipefail
-        mkdir -p stage/payload/resources/vfs/fonts
 
         cp packaging/korean/Install-Korean.bat stage/
         cp packaging/korean/install-korean.ps1 stage/
         cp packaging/korean/install-korean-config.ps1 stage/
         cp packaging/korean/korean-fallbacks.cfg stage/
 
-        cp targeted/openmw.exe stage/payload/openmw.exe
-        cp files/data/fonts/DejaVuLGCSansMono.omwfont stage/payload/resources/vfs/fonts/
-        cp files/data/fonts/MysticCards.omwfont stage/payload/resources/vfs/fonts/
-        cp files/data/fonts/Galmuri11.omwfont stage/payload/resources/vfs/fonts/
-        cp files/data/fonts/Galmuri11.ttf stage/payload/resources/vfs/fonts/
-        cp files/data/fonts/Galmuri11-OFL-1.1.md stage/payload/resources/vfs/fonts/
+        mkdir -p stage/payload/runtime stage/payload/mods
+        cp -a work/runtime/. stage/payload/runtime/
+
+        base_mod=$(find work/base/unpacked -type d -path '*/payload/mods/Morrowind_Korean_ReTranslation' -print -quit)
+        test -n "$base_mod"
+        cp -a "$base_mod" stage/payload/mods/
+
+        rm -rf "stage/$MOD_DIR/video"
+        mkdir -p "stage/$MOD_DIR/video"
+        cp korean/subtitles/video/*.srt "stage/$MOD_DIR/video/"
+
+        # The validated CI runtime contains the Korean .omwfont descriptors but the
+        # actual Gowun Batang Bold TTF is a packaging asset. Reuse a verified copy
+        # from the previous package when available; otherwise fetch the pinned
+        # Google Fonts blob and verify its Git blob SHA before packaging it.
+        runtime_fonts="stage/payload/runtime/resources/vfs/fonts"
+        mkdir -p "$runtime_fonts"
+        cp files/data/fonts/MysticCards.omwfont "$runtime_fonts/MysticCards.omwfont"
+        cp files/data/fonts/DejaVuLGCSansMono.omwfont "$runtime_fonts/DejaVuLGCSansMono.omwfont"
+        cp files/data/fonts/GowunBatang-OFL.txt "$runtime_fonts/GowunBatang-OFL.txt"
+
+        old_gowun=$(find work/base/unpacked -type f -name 'GowunBatang-Bold.ttf' -print -quit || true)
+        if [ -n "$old_gowun" ] && [ "$(git hash-object "$old_gowun")" = "$GOWUN_BLOB_SHA" ]; then
+          cp "$old_gowun" "$runtime_fonts/GowunBatang-Bold.ttf"
+        else
+          curl --fail --location --retry 3 \
+            'https://raw.githubusercontent.com/google/fonts/main/ofl/gowunbatang/GowunBatang-Bold.ttf' \
+            --output "$runtime_fonts/GowunBatang-Bold.ttf"
+        fi
+        test "$(git hash-object "$runtime_fonts/GowunBatang-Bold.ttf")" = "$GOWUN_BLOB_SHA"
 
         cat > stage/README-KOREAN.txt <<'EOF'
         OpenMW 0.51.0 Korean Support KR2
 
-        1. Install and run official OpenMW 0.51.0 at least once.
+        1. Install official OpenMW 0.51.0 and run it at least once.
         2. Extract this archive anywhere.
         3. Double-click Install-Korean.bat.
-        4. The installer finds or asks for the OpenMW installation folder, backs up the existing openmw.exe and Korean-managed font files, installs the Korean engine/font payload, then backs up and updates the user openmw.cfg.
-        5. Install the Korean translation data package separately.
+        4. The installer locates the OpenMW folder, backs up files it will replace,
+           installs the matching Korean OpenMW executable/DLL/plugin/Qt/resource set,
+           installs the Korean translation data and video subtitles, then safely updates
+           the user's openmw.cfg.
 
-        You do not need to copy openmw.exe manually or edit openmw.cfg manually.
-        The config updater preserves unrelated data=, content=, archives, mod ordering, and the user's existing encoding value.
+        KR2 uses a matched full OpenMW 0.51.0 runtime instead of replacing only openmw.exe.
+        This avoids mixing a CI-built executable with unrelated DLL versions.
+
+        The config updater preserves unrelated data=, content=, archive, mod ordering,
+        and the user's existing encoding value. It also repairs incomplete older Korean
+        managed blocks after making a timestamped backup.
+
+        Morrowind movie fallbacks are restored to the original BIK names, including
+        Movies_New_Game=mw_intro.bik. Original BIK files are not redistributed.
+
+        Included external UTF-8 SRT subtitles:
+        - Morrowind: mw_intro, mw_cavern, mw_end
+        - Bloodmoon: bm_bearhunt1, bm_bearhunt2, bm_ceremony1, bm_ceremony2,
+          bm_endgame, bm_frostgiant1, bm_frostgiant2
+
+        Global encoding=utf8 is not required.
         EOF
+        sed -i 's/^        //' stage/README-KOREAN.txt
 
-        exe_sha=$(sha256sum stage/payload/openmw.exe | awk '{print $1}')
+        openmw_sha=$(sha256sum stage/payload/runtime/openmw.exe | awk '{print $1}')
+        esp_sha=$(sha256sum "stage/$MOD_DIR/Morrowind_Korean_ReTranslation.esp" | awk '{print $1}')
         cat > stage/CI-ID.txt <<EOF
-        Korean OpenMW KR2 installer package
+        OpenMW 0.51.0 Korean Support KR2 final full-runtime package
         Upstream: OpenMW/openmw openmw-0.51.0
-        Targeted build run: ${TARGET_RUN_ID}
-        Targeted artifact: ${TARGET_ARTIFACT}
+        Full runtime run: ${FULL_RUNTIME_RUN}
+        Full runtime artifact: ${FULL_RUNTIME_ARTIFACT}
         Package commit: ${GITHUB_SHA}
-        payload/openmw.exe sha256: ${exe_sha}
+        payload/runtime/openmw.exe sha256: ${openmw_sha}
+        translation ESP sha256: ${esp_sha}
+        GowunBatang-Bold.ttf git blob: ${GOWUN_BLOB_SHA}
         EOF
 
-    - name: Validate installer and payload
+        cat > stage/VIDEO-SUBTITLES-README.txt <<'EOF'
+        Korean video subtitles for OpenMW 0.51.0 KR2
+
+        The Korean runtime patch looks for a UTF-8 SRT file with the same VFS basename
+        as each BIK video. Example: video\mw_intro.bik -> video\mw_intro.srt
+
+        Original BIK files are not redistributed or modified.
+        EOF
+        sed -i 's/^        //' stage/VIDEO-SUBTITLES-README.txt
+
+    - name: Validate final installer and payload
       shell: bash
       run: |
         set -euo pipefail
-        test "$(xxd -p -l 2 stage/payload/openmw.exe)" = "4d5a"
-        test -f stage/Install-Korean.bat
-        test -f stage/install-korean.ps1
-        test -f stage/install-korean-config.ps1
-        test -f stage/korean-fallbacks.cfg
-        test -f stage/payload/resources/vfs/fonts/MysticCards.omwfont
-        test -f stage/payload/resources/vfs/fonts/Galmuri11.ttf
-        grep -F 'Galmuri11.ttf' stage/payload/resources/vfs/fonts/MysticCards.omwfont
-        grep -F 'fallback=Fonts_Font_0,MysticCards' stage/korean-fallbacks.cfg
+
+        test "$(xxd -p -l 2 stage/payload/runtime/openmw.exe)" = "4d5a"
+        echo "$EXPECTED_OPENMW_SHA256  stage/payload/runtime/openmw.exe" | sha256sum -c -
+        echo "$EXPECTED_ESP_SHA256  stage/$MOD_DIR/Morrowind_Korean_ReTranslation.esp" | sha256sum -c -
+
+        for dll in avcodec-62.dll avformat-62.dll avutil-60.dll MyGUIEngine.dll osg.dll osgDB.dll; do
+          test -f "stage/payload/runtime/$dll"
+        done
+        test -f stage/payload/runtime/platforms/qwindows.dll
+        test -d stage/payload/runtime/osgPlugins-3.6.5
+
+        runtime_fonts="stage/payload/runtime/resources/vfs/fonts"
+        test "$(git hash-object "$runtime_fonts/GowunBatang-Bold.ttf")" = "$GOWUN_BLOB_SHA"
+        grep -F 'Source" value="GowunBatang-Bold.ttf"' "$runtime_fonts/MysticCards.omwfont"
+        grep -F 'Source" value="GowunBatang-Bold.ttf"' "$runtime_fonts/DejaVuLGCSansMono.omwfont"
+
+        test -f "stage/$MOD_DIR/Morrowind_Korean_ReTranslation.cel"
+        test -f "stage/$MOD_DIR/Morrowind_Korean_ReTranslation.mrk"
+        test -f "stage/$MOD_DIR/Morrowind_Korean_ReTranslation.top"
+        test -d "stage/$MOD_DIR/l10n"
+        test "$(find "stage/$MOD_DIR/video" -maxdepth 1 -type f -name '*.srt' | wc -l)" -eq 10
+
+        grep -F 'fallback=Movies_New_Game,mw_intro.bik' stage/korean-fallbacks.cfg
+        grep -F 'payload\runtime' stage/install-korean.ps1
+        grep -F 'Recovered unclosed Korean managed block' stage/install-korean-config.ps1
+
         if grep -E '^\s*(data|content|fallback-archive|encoding)=' stage/korean-fallbacks.cfg; then
           echo "Unsafe non-fallback config entry found" >&2
           exit 1
         fi
+
         pwsh -NoLogo -NoProfile -Command "[scriptblock]::Create([IO.File]::ReadAllText('stage/install-korean.ps1')) | Out-Null; [scriptblock]::Create([IO.File]::ReadAllText('stage/install-korean-config.ps1')) | Out-Null"
 
-    - name: Create KR2 archive
+    - name: Create final KR2 archive
       shell: bash
       run: |
         set -euo pipefail
-        mkdir -p dist
         (cd stage && zip -qr -9 "../dist/$PACKAGE_NAME" .)
         (cd dist && sha256sum "$PACKAGE_NAME" > "$PACKAGE_NAME.sha256")
         unzip -tq "dist/$PACKAGE_NAME"
+        test "$(stat -c%s "dist/$PACKAGE_NAME")" -gt 80000000
         cat "dist/$PACKAGE_NAME.sha256"
 
-    - name: Upload KR2 workflow artifact
+    - name: Upload final workflow artifact
       uses: actions/upload-artifact@v6
       with:
-        name: korean-windows-openmw-0.51.0-kr2
+        name: korean-windows-openmw-0.51.0-kr2-final
         path: |
           dist/${{ env.PACKAGE_NAME }}
           dist/${{ env.PACKAGE_NAME }}.sha256
         if-no-files-found: error
 
-    - name: Publish KR2 release
-      uses: softprops/action-gh-release@v2
-      with:
-        tag_name: openmw-0.51.0-kr2
-        target_commitish: ${{ github.sha }}
-        name: OpenMW 0.51.0 Korean Support KR2
-        draft: false
-        prerelease: false
-        files: |
-          dist/${{ env.PACKAGE_NAME }}
-          dist/${{ env.PACKAGE_NAME }}.sha256
-        body: |
-          # OpenMW 0.51.0 Korean Support KR2
+    - name: Replace KR2 release assets and notes
+      env:
+        GH_TOKEN: ${{ github.token }}
+      shell: bash
+      run: |
+        set -euo pipefail
+        cat > dist/release-notes.md <<'EOF'
+        # OpenMW 0.51.0 Korean Support KR2
 
-          OpenMW 0.51.0에서 모로윈드 한국어 패치를 사용하기 위한 한국어 런타임 지원 패키지입니다.
+        OpenMW 0.51.0용 모로윈드 한국어 통합 지원 패키지입니다.
 
-          ## KR2 변경점
+        ## KR2 통합 구성
+        - `Install-Korean.bat` 원클릭 설치
+        - 한국어 패치가 적용된 OpenMW 0.51.0 **전체 매칭 런타임** 설치
+        - `openmw.exe`와 FFmpeg / OSG / MyGUI / Qt DLL을 같은 빌드 세트로 구성
+        - Gowun Batang Bold 기반 한국어 폰트 구성
+        - 번역 데이터 `ESP / CEL / MRK / TOP / l10n` 포함
+        - 기존 설정과 모드 순서를 보존하는 `openmw.cfg` 자동 갱신
+        - 깨진 이전 한국어 관리 블록 자동 복구 및 설정 백업
 
-          - `Install-Korean.bat` 통합 설치기 추가
-          - BAT 한 번으로 한국어 `openmw.exe`와 폰트 파일 설치
-          - 기존 `openmw.exe`와 관리 대상 폰트 파일 자동 백업
-          - 사용자 `openmw.cfg` 자동 백업 및 한국어 fallback 갱신
-          - `data=`, `content=`, 모드 순서 및 기존 `encoding=` 값 보존
-          - 한국어 fallback 블록을 마지막 `encoding=` 항목 바로 앞에 배치
-          - 전체 OpenMW 재빌드 대신 검증된 `openmw.exe` 타깃 빌드 사용
+        ## 영상 재생 수정
+        - OpenMW 샘플 영화 fallback이 남아 새 게임 인트로가 건너뛰던 문제 수정
+        - `Movies_New_Game=mw_intro.bik` 등 모로윈드 원본 BIK fallback 복원
+        - CI 빌드 EXE만 교체하지 않고 영상 디코더 DLL까지 동일 런타임 세트로 설치
+        - 원본 BIK 영상은 수정하거나 재배포하지 않음
 
-          ## 설치
+        ## 한국어 영상 자막
+        - OpenMW 영상 재생기에 외부 UTF-8 SRT 지원 추가
+        - 영상과 같은 이름의 SRT를 VFS에서 자동 탐색
+        - 본편 3개: `mw_intro`, `mw_cavern`, `mw_end`
+        - Bloodmoon 7개: `bm_bearhunt1`, `bm_bearhunt2`, `bm_ceremony1`, `bm_ceremony2`, `bm_endgame`, `bm_frostgiant1`, `bm_frostgiant2`
+        - 자막이 없는 영상은 기존 OpenMW와 동일하게 재생
 
-          1. 공식 OpenMW 0.51.0을 설치하고 한 번 실행합니다.
-          2. 이 릴리즈의 ZIP 파일을 원하는 위치에 압축 해제합니다.
-          3. `Install-Korean.bat`을 실행합니다.
-          4. 한국어 번역 데이터 패키지는 별도로 설치합니다.
+        ## 설치
+        1. 공식 OpenMW 0.51.0을 설치하고 한 번 실행합니다.
+        2. `Morrowind-Korean-OpenMW-0.51.0-KR2-Full.zip`을 압축 해제합니다.
+        3. `Install-Korean.bat`을 실행합니다.
+        4. 설치기가 기존 OpenMW 런타임과 한국어 모드를 백업한 뒤 KR2 전체 런타임/번역/자막을 설치합니다.
 
-          전역 `encoding=utf8` 설정은 필요하지 않습니다.
+        전역 `encoding=utf8` 설정은 필요하지 않습니다.
+        EOF
+        sed -i 's/^        //' dist/release-notes.md
 
-          한국어 번역 데이터(ESP / CEL / MRK / TOP / l10n)는 엔진 패키지와 별도 배포됩니다.
+        gh release upload "$TAG" \
+          "dist/$PACKAGE_NAME" \
+          "dist/$PACKAGE_NAME.sha256" \
+          --repo "$GITHUB_REPOSITORY" \
+          --clobber
+        gh release edit "$TAG" \
+          --repo "$GITHUB_REPOSITORY" \
+          --title "OpenMW 0.51.0 Korean Support KR2" \
+          --notes-file dist/release-notes.md
+
+    - name: Verify published KR2 asset
+      env:
+        GH_TOKEN: ${{ github.token }}
+      shell: bash
+      run: |
+        set -euo pipefail
+        local_sha=$(cut -d' ' -f1 "dist/$PACKAGE_NAME.sha256")
+        remote_digest=$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$TAG" --jq '.assets[] | select(.name == env.PACKAGE_NAME) | .digest')
+        remote_size=$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$TAG" --jq '.assets[] | select(.name == env.PACKAGE_NAME) | .size')
+        test "$remote_digest" = "sha256:$local_sha"
+        test "$remote_size" -gt 80000000
+        echo "Published $PACKAGE_NAME"
+        echo "Digest: $remote_digest"
+        echo "Size: $remote_size"
