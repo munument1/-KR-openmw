@@ -1,0 +1,88 @@
+{
+  "status": "PASS",
+  "source_set": "Bethesda official Morrowind addons supplied for Morrowind_OfficialAddon_KR",
+  "totals": {
+    "DIAL": 28,
+    "INFO": 346,
+    "display_name_records": 186
+  },
+  "plugins": {
+    "AreaEffectArrows.esp": {
+      "DIAL": 0,
+      "INFO": 0,
+      "display_name_records": 54
+    },
+    "EBQ_Artifact.esp": {
+      "DIAL": 5,
+      "INFO": 40,
+      "display_name_records": 6,
+      "topics": {
+        "EBQ_Artifact": 13,
+        "explore these ruins": 2,
+        "latest rumors": 3,
+        "family honor": 2,
+        "Greeting 1": 20
+      }
+    },
+    "LeFemmArmor.esp": {
+      "DIAL": 0,
+      "INFO": 0,
+      "display_name_records": 46
+    },
+    "Siege at Firemoth.esp": {
+      "DIAL": 4,
+      "INFO": 24,
+      "display_name_records": 30,
+      "topics": {
+        "ms_firemoth": 2,
+        "Ward of Akavir": 2,
+        "Greeting 1": 14,
+        "Firemoth": 6
+      }
+    },
+    "adamantiumarmor.esp": {
+      "DIAL": 0,
+      "INFO": 0,
+      "display_name_records": 18
+    },
+    "bcsounds.esp": {
+      "DIAL": 0,
+      "INFO": 0,
+      "display_name_records": 7
+    },
+    "entertainers.esp": {
+      "DIAL": 5,
+      "INFO": 183,
+      "display_name_records": 19,
+      "topics": {
+        "entertain the patrons": 171,
+        "handy high-kick": 1,
+        "little secret": 6,
+        "latest rumors": 4,
+        "Greeting 7": 1
+      }
+    },
+    "master_index.esp": {
+      "DIAL": 14,
+      "INFO": 99,
+      "display_name_records": 6,
+      "topics": {
+        "MS_Master_Index": 11,
+        "propylon index": 9,
+        "Falensarano": 5,
+        "Falasmaryon": 4,
+        "Valenvaryon": 4,
+        "Greeting 5": 11,
+        "Indoranyon": 4,
+        "Andasreth": 5,
+        "Hlormaren": 4,
+        "Rotheran": 5,
+        "Marandus": 4,
+        "Berandas": 4,
+        "Telasero": 4,
+        "work": 25
+      }
+    }
+  },
+  "safety_note": "DIAL NAME values are topic identities and are not translation targets. INFO topology and non-display subrecords must remain structurally identical to the official source plugins."
+}
