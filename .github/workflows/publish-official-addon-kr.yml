@@ -27,7 +27,17 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          cat release-assets/official-addon-b64/chunk_* | base64 --decode > "$ZIP"
+          cat \
+            release-assets/official-addon-b64/chunk_00 \
+            release-assets/official-addon-b64/chunk_01 \
+            release-assets/official-addon-b64/chunk_02 \
+            release-assets/official-addon-b64/chunk_03 \
+            release-assets/official-addon-b64/chunk_04 \
+            release-assets/official-addon-b64/chunk_05 \
+            release-assets/official-addon-b64/chunk_06 \
+            release-assets/official-addon-b64/chunk_07 \
+            release-assets/official-addon-b64/chunk_08 \
+            | base64 --decode > "$ZIP"
           test "$(stat -c %s "$ZIP")" = "$EXPECTED_SIZE"
           echo "$EXPECTED_SHA256  $ZIP" | sha256sum --check -
           unzip -t "$ZIP"
