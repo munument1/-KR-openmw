@@ -10,7 +10,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   analyze:
@@ -66,14 +66,9 @@ jobs:
 
           cat analysis/master-index-compat/master_index_compat_summary.txt
 
-      - name: Commit analysis results
-        shell: bash
-        run: |
-          set -euo pipefail
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add analysis/master-index-compat
-          if ! git diff --cached --quiet; then
-            git commit -m "Record Master Index compatibility analysis [skip ci]"
-            git push origin HEAD:fix/master-index-compat
-          fi
+      - name: Upload analysis results
+        uses: actions/upload-artifact@v6
+        with:
+          name: master-index-compat-analysis-${{ github.sha }}
+          path: analysis/master-index-compat/
+          if-no-files-found: error
