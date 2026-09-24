@@ -1,0 +1,46 @@
+{
+  "schema": 1,
+  "output_plugin": "Morrowind_OfficialAddon_KR.esp",
+  "required_plugins": [
+    {
+      "name": "Area Effect Arrows",
+      "plugin": "AreaEffectArrows.esp",
+      "sha256": "4ecafebe44990a7c4e67d410957f2ce263c4b23d03fbc2e2c05695818ff76780"
+    },
+    {
+      "name": "LeFemme Armor",
+      "plugin": "LeFemmArmor.esp",
+      "sha256": "e887313d10268e644631132b4995f43b5c8a37f0991038bced7b57b6348404ed"
+    },
+    {
+      "name": "Master Index",
+      "plugin": "master_index.esp",
+      "sha256": "7120c1f959c4d325922a0fae6dc03c6f43308d782fdb1c5b065d081e4330f257"
+    },
+    {
+      "name": "Bitter Coast Sounds",
+      "plugin": "bcsounds.esp",
+      "sha256": "fd354c9419a54c882c67d7677232609b6e51885c11e2fd746cb838c105c49acb"
+    },
+    {
+      "name": "Entertainers",
+      "plugin": "entertainers.esp",
+      "sha256": "41b2dc58524c60fad73704ced5d45d8bdfb3f40eecce5b5c2b552c6ab86c1c3c"
+    },
+    {
+      "name": "Adamantium Armor",
+      "plugin": "adamantiumarmor.esp",
+      "sha256": "1df60fa3b4b0b33474ba34ac1ed8b4ef5c088a4450cec9330a31d1cd926922dd"
+    },
+    {
+      "name": "Helm of Tohan",
+      "plugin": "EBQ_Artifact.esp",
+      "sha256": "21869459b60ee8e83b0211766f7b5e9859baa3074f609e0b40f684af05c50c37"
+    },
+    {
+      "name": "Siege at Firemoth",
+      "plugin": "Siege at Firemoth.esp",
+      "sha256": "bd507de8fca1d4b9e433f83707c938981ae83db96c457e3a88da1c6cb16abb35"
+    }
+  ]
+}
