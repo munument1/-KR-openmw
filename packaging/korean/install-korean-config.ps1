@@ -276,99 +276,10 @@ if ($manageMod) {
     $masterIndexContentIndex = -1
     $koreanContentIndex = -1
     for ($i = 0; $i -lt $outputLines.Count; $i++) {
-        if ($outputLines[$i] -match '^\s*content\s*=\s*master_index\.esp\s*
-
-$fallbackBlock = New-Object 'System.Collections.Generic.List[string]'
-[void]$fallbackBlock.Add($fallbackBeginMarker)
-foreach ($line in $payloadLines) {
-    [void]$fallbackBlock.Add($line)
-}
-[void]$fallbackBlock.Add($fallbackEndMarker)
-
-$encodingIndex = -1
-for ($i = $outputLines.Count - 1; $i -ge 0; $i--) {
-    if ($outputLines[$i] -match '^\s*encoding\s*=') {
-        $encodingIndex = $i
-        break
-    }
-}
-
-if ($encodingIndex -ge 0) {
-    Insert-LinesAt -List $outputLines -Index $encodingIndex -Lines $fallbackBlock.ToArray()
-} else {
-    if ($outputLines.Count -gt 0 -and -not [string]::IsNullOrWhiteSpace($outputLines[$outputLines.Count - 1])) {
-        [void]$outputLines.Add("")
-    }
-    foreach ($line in $fallbackBlock) {
-        [void]$outputLines.Add($line)
-    }
-}
-
-[System.IO.File]::WriteAllLines($ConfigPath, $outputLines, $utf8NoBom)
-
-Write-Host "Updated OpenMW Korean configuration."
-Write-Host "Config : $ConfigPath"
-Write-Host "Backup : $backupPath"
-Write-Host "Managed fallback keys: $($managedKeys.Count)"
-if ($manageMod) {
-    Write-Host "Korean data : $dataLine"
-    Write-Host "Korean plugin: content=$pluginFileName"
-    if ($masterIndexContentIndex -ge 0) {
-        Write-Host "Master Index compat: content=$compatPluginFileName"
-    }
-}
-if ($encodingIndex -ge 0) {
-    Write-Host "Managed fallback block inserted immediately before the final encoding= line."
-} else {
-    Write-Host "Managed fallback block appended at the end because no encoding= line exists."
-}
-) {
+        if ($outputLines[$i] -match '^\s*content\s*=\s*master_index\.esp\s*$') {
             $masterIndexContentIndex = $i
         }
-        if ($outputLines[$i] -match ('^\s*content\s*=\s*' + [regex]::Escape($pluginFileName) + '\s*
-
-$fallbackBlock = New-Object 'System.Collections.Generic.List[string]'
-[void]$fallbackBlock.Add($fallbackBeginMarker)
-foreach ($line in $payloadLines) {
-    [void]$fallbackBlock.Add($line)
-}
-[void]$fallbackBlock.Add($fallbackEndMarker)
-
-$encodingIndex = -1
-for ($i = $outputLines.Count - 1; $i -ge 0; $i--) {
-    if ($outputLines[$i] -match '^\s*encoding\s*=') {
-        $encodingIndex = $i
-        break
-    }
-}
-
-if ($encodingIndex -ge 0) {
-    Insert-LinesAt -List $outputLines -Index $encodingIndex -Lines $fallbackBlock.ToArray()
-} else {
-    if ($outputLines.Count -gt 0 -and -not [string]::IsNullOrWhiteSpace($outputLines[$outputLines.Count - 1])) {
-        [void]$outputLines.Add("")
-    }
-    foreach ($line in $fallbackBlock) {
-        [void]$outputLines.Add($line)
-    }
-}
-
-[System.IO.File]::WriteAllLines($ConfigPath, $outputLines, $utf8NoBom)
-
-Write-Host "Updated OpenMW Korean configuration."
-Write-Host "Config : $ConfigPath"
-Write-Host "Backup : $backupPath"
-Write-Host "Managed fallback keys: $($managedKeys.Count)"
-if ($manageMod) {
-    Write-Host "Korean data : $dataLine"
-    Write-Host "Korean plugin: content=$pluginFileName"
-}
-if ($encodingIndex -ge 0) {
-    Write-Host "Managed fallback block inserted immediately before the final encoding= line."
-} else {
-    Write-Host "Managed fallback block appended at the end because no encoding= line exists."
-}
-)) {
+        if ($outputLines[$i] -match ('^\s*content\s*=\s*' + [regex]::Escape($pluginFileName) + '\s*$')) {
             $koreanContentIndex = $i
         }
     }
@@ -424,6 +335,9 @@ Write-Host "Managed fallback keys: $($managedKeys.Count)"
 if ($manageMod) {
     Write-Host "Korean data : $dataLine"
     Write-Host "Korean plugin: content=$pluginFileName"
+    if ($masterIndexContentIndex -ge 0) {
+        Write-Host "Master Index compat: content=$compatPluginFileName"
+    }
 }
 if ($encodingIndex -ge 0) {
     Write-Host "Managed fallback block inserted immediately before the final encoding= line."
