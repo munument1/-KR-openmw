@@ -1,0 +1,68 @@
+{
+  "status": "PASS",
+  "artifact": {
+    "zip": "Morrowind_OfficialAddon_KR.zip",
+    "zip_sha256": "404dfe169203bdec679ec67d456aa7516421298dbec89620331a6af931bbe79f",
+    "zip_size": 48985,
+    "esp_sha256": "baed8b321ef7988abe294362e4d5253f9d1db582d062e4f3261a8120110086ad",
+    "esp_size": 248115,
+    "top_sha256": "964c1b0d0faf441d39b80dd77e150110e36fe318905dc68e9e1e44d6eaca2149",
+    "mrk_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "cel_sha256": "4686e4c9e34e9684507a475b6cfadb4f99c6ea9147d0e06571bfb7f9cf920d80"
+  },
+  "checks": {
+    "source_hashes_match_manifest": true,
+    "required_masters_exact": true,
+    "source_info_count": 346,
+    "output_info_count": 346,
+    "info_ids_unique_and_complete": true,
+    "info_nontext_structure_identical": true,
+    "info_result_changes_limited_to_choice_and_addtopic": true,
+    "all_info_responses_korean": true,
+    "display_name_records": 144,
+    "all_display_names_korean": true,
+    "main_reference_exact_matches": 44,
+    "main_reference_mismatches": 0,
+    "translated_books": 3,
+    "master_index_warp_scripts": 10,
+    "master_index_warp_logic_preserved": true,
+    "master_index_compiled_script_data_stripped": true,
+    "master_index_messagebox_korean": true,
+    "top_rows": 13,
+    "all_top_targets_are_output_dials": true,
+    "mrk_intentionally_empty": true,
+    "cel_rows": 11
+  },
+  "dialogue": {
+    "output_DIAL": 48,
+    "output_INFO": 346,
+    "translated_parent_topics": {
+      "entertain the patrons": "손님들을 즐겁게 하기",
+      "handy high-kick": "핸디 하이킥",
+      "little secret": "작은 비밀",
+      "latest rumors": "최근 소문",
+      "explore these ruins": "폐허 탐험",
+      "family honor": "가문의 명예",
+      "propylon index": "프로필론 색인",
+      "Falensarano": "팔렌사라노",
+      "Falasmaryon": "팔라스마리온",
+      "Valenvaryon": "발렌바리온",
+      "Indoranyon": "인도라니온",
+      "Andasreth": "안다스레스",
+      "Hlormaren": "흘로마렌",
+      "Rotheran": "로테란",
+      "Marandus": "마란두스",
+      "Berandas": "베란다스",
+      "Telasero": "텔라세로",
+      "work": "일",
+      "Ward of Akavir": "아카비르의 수호 방패",
+      "Firemoth": "파이어모스"
+    },
+    "result_scripts_changed": 16,
+    "result_script_change_policy": "Only Choice label translation and addtopic redirection to Korean duplicate topic IDs are allowed."
+  },
+  "notes": [
+    "No live gameplay session was executed by this validator; this is binary/structural validation.",
+    "The package remains a separate release asset and does not modify the KR3 Full ZIP."
+  ]
+}
