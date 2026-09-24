@@ -14,6 +14,7 @@ $contentBeginMarker = "# BEGIN OPENMW KOREAN MANAGED CONTENT"
 $contentEndMarker = "# END OPENMW KOREAN MANAGED CONTENT"
 $modFolderName = "Morrowind_Korean_ReTranslation"
 $pluginFileName = "Morrowind_Korean_ReTranslation.esp"
+$compatPluginFileName = "Morrowind_Korean_MasterIndex_Compat.esp"
 $legacyModFolderNames = @(
     "Morrowind_Korean_ReTranslation_v01"
 )
@@ -93,7 +94,7 @@ function Test-ManagedContentLine([string]$Line) {
         return $false
     }
     $contentName = $Matches[1].Trim().Trim('"')
-    return ($contentName -ieq $pluginFileName -or $retiredPluginFileNames -icontains $contentName)
+    return ($contentName -ieq $pluginFileName -or $contentName -ieq $compatPluginFileName -or $retiredPluginFileNames -icontains $contentName)
 }
 
 $i = 0
@@ -267,6 +268,124 @@ if ($manageMod) {
                 [void]$outputLines.Add($line)
             }
         }
+    }
+
+    # Bethesda's optional Master Index plugin adds/extends dialogue chains that
+    # the base Korean ESP can otherwise win by load order. If the official
+    # plugin is active, load our narrow dialogue overlay after both files.
+    $masterIndexContentIndex = -1
+    $koreanContentIndex = -1
+    for ($i = 0; $i -lt $outputLines.Count; $i++) {
+        if ($outputLines[$i] -match '^\s*content\s*=\s*master_index\.esp\s*
+
+$fallbackBlock = New-Object 'System.Collections.Generic.List[string]'
+[void]$fallbackBlock.Add($fallbackBeginMarker)
+foreach ($line in $payloadLines) {
+    [void]$fallbackBlock.Add($line)
+}
+[void]$fallbackBlock.Add($fallbackEndMarker)
+
+$encodingIndex = -1
+for ($i = $outputLines.Count - 1; $i -ge 0; $i--) {
+    if ($outputLines[$i] -match '^\s*encoding\s*=') {
+        $encodingIndex = $i
+        break
+    }
+}
+
+if ($encodingIndex -ge 0) {
+    Insert-LinesAt -List $outputLines -Index $encodingIndex -Lines $fallbackBlock.ToArray()
+} else {
+    if ($outputLines.Count -gt 0 -and -not [string]::IsNullOrWhiteSpace($outputLines[$outputLines.Count - 1])) {
+        [void]$outputLines.Add("")
+    }
+    foreach ($line in $fallbackBlock) {
+        [void]$outputLines.Add($line)
+    }
+}
+
+[System.IO.File]::WriteAllLines($ConfigPath, $outputLines, $utf8NoBom)
+
+Write-Host "Updated OpenMW Korean configuration."
+Write-Host "Config : $ConfigPath"
+Write-Host "Backup : $backupPath"
+Write-Host "Managed fallback keys: $($managedKeys.Count)"
+if ($manageMod) {
+    Write-Host "Korean data : $dataLine"
+    Write-Host "Korean plugin: content=$pluginFileName"
+    if ($masterIndexContentIndex -ge 0) {
+        Write-Host "Master Index compat: content=$compatPluginFileName"
+    }
+}
+if ($encodingIndex -ge 0) {
+    Write-Host "Managed fallback block inserted immediately before the final encoding= line."
+} else {
+    Write-Host "Managed fallback block appended at the end because no encoding= line exists."
+}
+) {
+            $masterIndexContentIndex = $i
+        }
+        if ($outputLines[$i] -match ('^\s*content\s*=\s*' + [regex]::Escape($pluginFileName) + '\s*
+
+$fallbackBlock = New-Object 'System.Collections.Generic.List[string]'
+[void]$fallbackBlock.Add($fallbackBeginMarker)
+foreach ($line in $payloadLines) {
+    [void]$fallbackBlock.Add($line)
+}
+[void]$fallbackBlock.Add($fallbackEndMarker)
+
+$encodingIndex = -1
+for ($i = $outputLines.Count - 1; $i -ge 0; $i--) {
+    if ($outputLines[$i] -match '^\s*encoding\s*=') {
+        $encodingIndex = $i
+        break
+    }
+}
+
+if ($encodingIndex -ge 0) {
+    Insert-LinesAt -List $outputLines -Index $encodingIndex -Lines $fallbackBlock.ToArray()
+} else {
+    if ($outputLines.Count -gt 0 -and -not [string]::IsNullOrWhiteSpace($outputLines[$outputLines.Count - 1])) {
+        [void]$outputLines.Add("")
+    }
+    foreach ($line in $fallbackBlock) {
+        [void]$outputLines.Add($line)
+    }
+}
+
+[System.IO.File]::WriteAllLines($ConfigPath, $outputLines, $utf8NoBom)
+
+Write-Host "Updated OpenMW Korean configuration."
+Write-Host "Config : $ConfigPath"
+Write-Host "Backup : $backupPath"
+Write-Host "Managed fallback keys: $($managedKeys.Count)"
+if ($manageMod) {
+    Write-Host "Korean data : $dataLine"
+    Write-Host "Korean plugin: content=$pluginFileName"
+}
+if ($encodingIndex -ge 0) {
+    Write-Host "Managed fallback block inserted immediately before the final encoding= line."
+} else {
+    Write-Host "Managed fallback block appended at the end because no encoding= line exists."
+}
+)) {
+            $koreanContentIndex = $i
+        }
+    }
+
+    if ($masterIndexContentIndex -ge 0) {
+        $compatPluginPath = Join-Path $modDataPath $compatPluginFileName
+        if (-not (Test-Path -LiteralPath $compatPluginPath -PathType Leaf)) {
+            throw "Master Index compatibility ESP not found: $compatPluginPath"
+        }
+
+        $compatContentBlock = @(
+            $contentBeginMarker,
+            "content=$compatPluginFileName",
+            $contentEndMarker
+        )
+        $compatInsertAfter = [Math]::Max($masterIndexContentIndex, $koreanContentIndex)
+        Insert-LinesAt -List $outputLines -Index ($compatInsertAfter + 1) -Lines $compatContentBlock
     }
 }
 
