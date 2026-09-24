@@ -1,0 +1,70 @@
+name: Publish Official Addon KR
+
+on:
+  push:
+    branches:
+      - feature/official-addon-kr
+    paths:
+      - ".github/workflows/publish-official-addon-kr.yml"
+      - "release-assets/official-addon-b64/**"
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    env:
+      TAG: openmw-0.51.0-kr3
+      ZIP: Morrowind_OfficialAddon_KR.zip
+      EXPECTED_SHA256: 404dfe169203bdec679ec67d456aa7516421298dbec89620331a6af931bbe79f
+      EXPECTED_SIZE: "48985"
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Reconstruct and verify package
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat release-assets/official-addon-b64/chunk_* | base64 --decode > "$ZIP"
+          test "$(stat -c %s "$ZIP")" = "$EXPECTED_SIZE"
+          echo "$EXPECTED_SHA256  $ZIP" | sha256sum --check -
+          unzip -t "$ZIP"
+          printf '%s  %s\n' "$EXPECTED_SHA256" "$ZIP" > "$ZIP.sha256"
+
+      - name: Upload separate release assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release upload "$TAG" "$ZIP" "$ZIP.sha256" --clobber --repo "$GITHUB_REPOSITORY"
+
+      - name: Add addon package note to release
+        shell: bash
+        run: |
+          set -euo pipefail
+          marker="## 공식 애드온 한국어 번역"
+          body="$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json body --jq .body)"
+          if ! grep -Fq "$marker" <<<"$body"; then
+            {
+              printf '%s\n\n' "$body"
+              cat <<'EOF'
+          ## 공식 애드온 한국어 번역
+
+          Morrowind_OfficialAddon_KR.zip은 본편 KR3 Full ZIP과 분리된 별도 패키지입니다.
+
+          - Bethesda 공식 Morrowind 애드온 8종을 모두 설치해야 합니다.
+          - Morrowind_OfficialAddon_KR.esp를 공식 애드온과 Morrowind_Korean_ReTranslation.esp보다 뒤에 로드하세요.
+          - 대화/토픽 구조 검증을 통과한 통합 한국어 번역 ESP와 OpenMW용 TOP/MRK/CEL 보조 파일을 포함합니다.
+          EOF
+            } > /tmp/release-notes.md
+            gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --notes-file /tmp/release-notes.md
+          fi
+
+      - name: Verify release assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          names="$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name')"
+          grep -Fx "$ZIP" <<<"$names"
+          grep -Fx "$ZIP.sha256" <<<"$names"
