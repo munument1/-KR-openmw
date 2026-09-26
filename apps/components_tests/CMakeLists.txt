@@ -83,6 +83,7 @@ file(GLOB UNITTEST_SRC_FILES
 
     esmterrain/testgridsampling.cpp
 
+    resource/testmultiobjectcache.cpp
     resource/testobjectcache.cpp
     resource/testresourcesystem.cpp
 
@@ -106,6 +107,11 @@ target_link_libraries(components-tests
     GMock::GMock
     components
 )
+
+if (USE_QT)
+    target_sources(components-tests PRIVATE config/testlaunchersettings.cpp)
+    target_link_libraries(components-tests components_qt)
+endif()
 
 if (WIN32)
     target_sources(components-tests PRIVATE ${CMAKE_SOURCE_DIR}/files/windows/other-apps.manifest)

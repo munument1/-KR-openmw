@@ -251,7 +251,8 @@ namespace MWWorld
             mRendering->getLightRoot()->asGroup(), mResourceSystem, mRendering.get(), mPhysics.get());
         mRendering->preloadCommonAssets();
 
-        mWeatherManager = std::make_unique<MWWorld::WeatherManager>(*mRendering, mStore);
+        mWeatherStore = std::make_unique<MWWorld::WeatherStore>();
+        mWeatherManager = std::make_unique<MWWorld::WeatherManager>(*mRendering, mStore, *mWeatherStore);
 
         mWorldScene = std::make_unique<Scene>(*this, *mRendering.get(), mPhysics.get(), *mNavigator);
     }
@@ -281,7 +282,7 @@ namespace MWWorld
         // we don't want old weather to persist on a new game
         // Note that if reset later, the initial ChangeWeather that the chargen script calls will be lost.
         mWeatherManager.reset();
-        mWeatherManager = std::make_unique<MWWorld::WeatherManager>(*mRendering.get(), mStore);
+        mWeatherManager = std::make_unique<MWWorld::WeatherManager>(*mRendering.get(), mStore, *mWeatherStore);
 
         if (!bypass)
         {
@@ -1773,6 +1774,11 @@ namespace MWWorld
         return false;
     }
 
+    const std::set<CellStore*, std::less<>>& World::getActiveCells() const
+    {
+        return mWorldScene->getActiveCells();
+    }
+
     ESM::RefId World::getCurrentWorldspace() const
     {
         const CellStore* cellStore = mWorldScene->getCurrentCell();
@@ -1781,9 +1787,9 @@ namespace MWWorld
         return ESM::Cell::sDefaultWorldspaceId;
     }
 
-    const std::vector<MWWorld::Weather>& World::getAllWeather() const
+    const MWWorld::WeatherStore& World::getAllWeather() const
     {
-        return mWeatherManager->getAllWeather();
+        return *mWeatherStore;
     }
 
     int World::getCurrentWeatherScriptId() const
@@ -1794,16 +1800,6 @@ namespace MWWorld
     const MWWorld::Weather& World::getCurrentWeather() const
     {
         return mWeatherManager->getWeather();
-    }
-
-    const MWWorld::Weather* World::getWeather(size_t index) const
-    {
-        return mWeatherManager->getWeather(index);
-    }
-
-    const MWWorld::Weather* World::getWeather(const ESM::RefId& id) const
-    {
-        return mWeatherManager->getWeather(id);
     }
 
     int World::getNextWeatherScriptId() const
@@ -1830,22 +1826,17 @@ namespace MWWorld
         return mWeatherManager->getNightDayMode();
     }
 
-    void World::changeWeather(const ESM::RefId& region, const unsigned int id)
+    void World::changeWeather(ESM::RefId region, ESM::RefId id)
     {
         mWeatherManager->changeWeather(region, id);
     }
 
-    void World::changeWeather(const ESM::RefId& region, const ESM::RefId& id)
-    {
-        mWeatherManager->changeWeather(region, id);
-    }
-
-    void World::modRegion(const ESM::RefId& regionid, std::span<const uint8_t> chances)
+    void World::modRegion(ESM::RefId regionid, const std::map<ESM::RefId, uint8_t>& chances)
     {
         mWeatherManager->modRegion(regionid, chances);
     }
 
-    std::span<const uint8_t> World::getRegionWeatherChances(const ESM::RefId& regionid) const
+    const std::map<ESM::RefId, uint8_t>& World::getRegionWeatherChances(ESM::RefId regionid) const
     {
         return mWeatherManager->getRegionChances(regionid);
     }
@@ -1865,6 +1856,8 @@ namespace MWWorld
             {
                 World::DoorMarker newMarker;
                 newMarker.name = MWClass::Door::getDestination(ref);
+                if (newMarker.name.empty())
+                    return true;
                 newMarker.dest = ref.mRef.getDestCell();
 
                 ESM::Position pos = ref.mData.getPosition();
@@ -2618,13 +2611,15 @@ namespace MWWorld
         WorldModel* worldModel = MWBase::Environment::get().getWorldModel();
         for (const MWWorld::CellRef* door : sortedDoors)
         {
-            const MWWorld::CellStore& source = worldModel->getCell(door->getDestCell());
+            const MWWorld::CellStore* source = worldModel->findCell(door->getDestCell());
+            if (source == nullptr)
+                continue;
 
             // Find door leading to our current teleport door
             // and use its destination to position inside cell.
             // \note Using _any_ door pointed to the cell,
             // not the one pointed to current door.
-            for (const MWWorld::LiveCellRef<ESM::Door>& destDoor : source.getReadOnlyDoors().mList)
+            for (const MWWorld::LiveCellRef<ESM::Door>& destDoor : source->getReadOnlyDoors().mList)
             {
                 if (cellId == destDoor.mRef.getDestCell())
                 {
@@ -2633,7 +2628,7 @@ namespace MWWorld
                     return doorDest;
                 }
             }
-            for (const MWWorld::LiveCellRef<ESM4::Door>& destDoor : source.getReadOnlyEsm4Doors().mList)
+            for (const MWWorld::LiveCellRef<ESM4::Door>& destDoor : source->getReadOnlyEsm4Doors().mList)
             {
                 if (cellId == destDoor.mRef.getDestCell())
                     return destDoor.mRef.getDoorDest();
@@ -3132,10 +3127,12 @@ namespace MWWorld
             nextCells.clear();
             for (const auto& currentCell : currentCells)
             {
-                MWWorld::CellStore& next = mWorldModel.getCell(currentCell);
+                MWWorld::CellStore* next = mWorldModel.findCell(currentCell);
+                if (next == nullptr)
+                    continue;
 
                 // Check if any door in the cell leads to an exterior directly
-                for (const MWWorld::LiveCellRef<ESM::Door>& ref : next.getReadOnlyDoors().mList)
+                for (const MWWorld::LiveCellRef<ESM::Door>& ref : next->getReadOnlyDoors().mList)
                 {
                     if (!ref.mRef.getTeleport())
                         continue;
@@ -3184,17 +3181,19 @@ namespace MWWorld
             std::swap(currentCells, nextCells);
             for (const auto& cell : currentCells)
             {
-                MWWorld::CellStore& next = mWorldModel.getCell(cell);
+                MWWorld::CellStore* next = mWorldModel.findCell(cell);
+                if (next == nullptr)
+                    continue;
                 checkedCells.insert(cell);
 
-                closestMarker = next.searchConst(id);
+                closestMarker = next->searchConst(id);
                 if (!closestMarker.isEmpty())
                 {
                     return closestMarker;
                 }
 
                 // Check if any door in the cell leads to an exterior directly
-                for (const MWWorld::LiveCellRef<ESM::Door>& ref : next.getReadOnlyDoors().mList)
+                for (const MWWorld::LiveCellRef<ESM::Door>& ref : next->getReadOnlyDoors().mList)
                 {
                     if (!ref.mRef.getTeleport())
                         continue;
