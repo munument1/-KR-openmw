@@ -22,7 +22,7 @@ $requiredRuntimeFiles = @(
     "MyGUIEngine.dll",
     "osg.dll",
     "osgDB.dll",
-    "resources\vfs\fonts\GowunBatang-Bold.ttf",
+    "resources\vfs\fonts\Galmuri11.ttf",
     "resources\vfs\fonts\MysticCards.omwfont",
     "resources\vfs\fonts\DejaVuLGCSansMono.omwfont"
 )

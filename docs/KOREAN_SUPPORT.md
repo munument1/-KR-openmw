@@ -52,11 +52,11 @@ The Korean runtime must not require users to manually edit `openmw.cfg`, `user.c
 
 The Korean package uses OpenMW's normal font fallback names while supplying Korean-capable descriptors:
 
-- `Fonts_Font_0` / `MysticCards` -> Gowun Batang Bold, antialiased;
-- `Fonts_Font_1` / `DejaVuLGCSansMono` -> Gowun Batang Bold, antialiased;
+- `Fonts_Font_0` / `MysticCards` -> Galmuri11, pixel-rendered (`Antialias=false`, resolution 70);
+- `Fonts_Font_1` / `DejaVuLGCSansMono` -> Galmuri11, pixel-rendered (`Antialias=false`, resolution 58);
 - `Fonts_Font_2` / `DemonicLetters` -> original DemonicLetters Daedric font, unchanged.
 
-The Daedric slot is intentionally preserved so Daedric writing keeps its original glyphs. Gowun Batang is distributed under the SIL Open Font License 1.1 and its OFL text is included with packaged builds. The build workflow retrieves the upstream `GowunBatang-Bold.ttf` and verifies its Git blob SHA before packaging it.
+The Daedric slot is intentionally preserved so Daedric writing keeps its original glyphs. Galmuri11 is distributed under the SIL Open Font License 1.1; the repository carries `Galmuri11.ttf` and `Galmuri11-OFL-1.1.md`, and packaged Korean builds use that pinned repository copy.
 
 Translated OpenMW fallback strings are maintained separately under `packaging/korean/korean-fallbacks.cfg`. The Windows config updater backs up the user's existing `openmw.cfg`, removes only stale copies of the managed fallback keys, and installs the Korean managed block without replacing unrelated configuration or mod ordering.
 
@@ -71,7 +71,7 @@ For a new OpenMW release:
 1. run `Korean upstream patch check` against the new upstream tag or commit;
 2. if all four patches apply, sync/rebase the fork to that upstream revision and apply the same patchset;
 3. run the targeted `openmw` build to verify the Korean runtime compiles without building unrelated tools;
-4. verify the Gowun Batang source hash and the three font-slot mappings;
+4. verify the Galmuri11 asset and the three font-slot mappings;
 5. package the runtime binary, translation assets, fonts, and config updater together;
 6. repeat the Korean regression tests before publishing.
 
