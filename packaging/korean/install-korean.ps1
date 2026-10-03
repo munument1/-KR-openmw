@@ -6,23 +6,17 @@ param(
 
 $ErrorActionPreference = "Stop"
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-$runtimeRoot = Join-Path $scriptDir "payload\runtime"
+$payloadRoot = Join-Path $scriptDir "payload"
 $modFolderName = "Morrowind_Korean_ReTranslation"
-$pluginFileName = "Morrowind_Korean_ReTranslation.esp"
 $legacyModFolderName = "Morrowind_Korean_ReTranslation_v01"
-$payloadMod = Join-Path $scriptDir "payload\mods\$modFolderName"
+$payloadMod = Join-Path $payloadRoot "mods\$modFolderName"
 $configUpdater = Join-Path $scriptDir "install-korean-config.ps1"
 $timestamp = Get-Date -Format "yyyyMMdd-HHmmss"
 
 $requiredRuntimeFiles = @(
     "openmw.exe",
-    "avcodec-62.dll",
-    "avformat-62.dll",
-    "avutil-60.dll",
-    "MyGUIEngine.dll",
-    "osg.dll",
-    "osgDB.dll",
     "resources\vfs\fonts\Galmuri11.ttf",
+    "resources\vfs\fonts\Galmuri11-OFL-1.1.md",
     "resources\vfs\fonts\MysticCards.omwfont",
     "resources\vfs\fonts\DejaVuLGCSansMono.omwfont"
 )
@@ -46,9 +40,9 @@ $requiredSubtitleFiles = @(
 )
 
 foreach ($relative in $requiredRuntimeFiles) {
-    $requiredPath = Join-Path $runtimeRoot $relative
+    $requiredPath = Join-Path $payloadRoot $relative
     if (-not (Test-Path -LiteralPath $requiredPath -PathType Leaf)) {
-        throw "Required matching OpenMW runtime file not found: $requiredPath"
+        throw "Required Korean OpenMW payload file not found: $requiredPath"
     }
 }
 foreach ($requiredModFile in $requiredModFiles) {
@@ -121,7 +115,7 @@ if (-not (Test-OpenMWInstall $OpenMWPath)) {
     throw "OpenMW installation not found at: $OpenMWPath"
 }
 
-$backupDir = Join-Path $OpenMWPath "korean-backup-$timestamp"
+$backupDir = Join-Path $OpenMWPath "korean-kr4-backup-$timestamp"
 $runtimeBackup = Join-Path $backupDir "runtime"
 $modBackup = Join-Path $backupDir "mod"
 $legacyModBackup = Join-Path $backupDir "legacy-mod"
@@ -130,17 +124,11 @@ New-Item -ItemType Directory -Path $runtimeBackup -Force | Out-Null
 $newRuntimeFiles = New-Object 'System.Collections.Generic.List[string]'
 $overwrittenRuntimeFiles = New-Object 'System.Collections.Generic.List[string]'
 
-Write-Host "Backing up and installing the matching OpenMW 0.51.0 runtime set..."
-$runtimeRootFull = [System.IO.Path]::GetFullPath($runtimeRoot).TrimEnd('\')
-Get-ChildItem -LiteralPath $runtimeRoot -File -Recurse | ForEach-Object {
-    $relative = $_.FullName.Substring($runtimeRootFull.Length).TrimStart([char[]]@('\','/'))
-
-    # Never replace the installation/global OpenMW config with the CI artifact copy.
-    if ($relative -ieq 'openmw.cfg' -or $relative -ieq 'CI-ID.txt') {
-        return
-    }
-
+Write-Host "Backing up and installing the Korean OpenMW executable and Galmuri11 font payload..."
+foreach ($relative in $requiredRuntimeFiles) {
+    $source = Join-Path $payloadRoot $relative
     $destination = Join-Path $OpenMWPath $relative
+
     if (Test-Path -LiteralPath $destination -PathType Leaf) {
         $backup = Join-Path $runtimeBackup $relative
         New-Item -ItemType Directory -Path (Split-Path -Parent $backup) -Force | Out-Null
@@ -154,7 +142,7 @@ Get-ChildItem -LiteralPath $runtimeRoot -File -Recurse | ForEach-Object {
     if (-not [string]::IsNullOrWhiteSpace($destinationParent)) {
         New-Item -ItemType Directory -Path $destinationParent -Force | Out-Null
     }
-    Copy-Item -LiteralPath $_.FullName -Destination $destination -Force
+    Copy-Item -LiteralPath $source -Destination $destination -Force
 }
 
 $newRuntimeFiles | Set-Content -LiteralPath (Join-Path $backupDir 'new-runtime-files.txt') -Encoding UTF8
@@ -180,17 +168,6 @@ if (Test-Path -LiteralPath $legacyTargetMod -PathType Container) {
 Write-Host "Installing Korean translation data and video subtitles..."
 Copy-Item -LiteralPath $payloadMod -Destination $targetMod -Recurse -Force
 
-foreach ($requiredModFile in $requiredModFiles) {
-    if (-not (Test-Path -LiteralPath (Join-Path $targetMod $requiredModFile) -PathType Leaf)) {
-        throw "Korean translation file was not installed correctly: $requiredModFile"
-    }
-}
-foreach ($requiredSubtitleFile in $requiredSubtitleFiles) {
-    if (-not (Test-Path -LiteralPath (Join-Path $targetMod "video\$requiredSubtitleFile") -PathType Leaf)) {
-        throw "Korean video subtitle was not installed correctly: $requiredSubtitleFile"
-    }
-}
-
 Write-Host "Updating OpenMW user configuration..."
 if ([string]::IsNullOrWhiteSpace($ConfigPath)) {
     & $configUpdater -OpenMWPath $OpenMWPath
@@ -198,17 +175,18 @@ if ([string]::IsNullOrWhiteSpace($ConfigPath)) {
     & $configUpdater -OpenMWPath $OpenMWPath -ConfigPath $ConfigPath
 }
 
-$installedRuntimeId = Join-Path $runtimeRoot 'CI-ID.txt'
-if (Test-Path -LiteralPath $installedRuntimeId -PathType Leaf) {
-    Copy-Item -LiteralPath $installedRuntimeId -Destination (Join-Path $backupDir 'installed-runtime-CI-ID.txt') -Force
-}
+$marker = @"
+OpenMW 0.51.0 Korean Support KR4
+Installed: $timestamp
+Font: Galmuri11
+Backup: $backupDir
+"@
+Set-Content -LiteralPath (Join-Path $OpenMWPath "OPENMW-KOREAN-KR4.txt") -Value $marker -Encoding UTF8
 
 Write-Host ""
-Write-Host "Korean OpenMW installation completed."
+Write-Host "Korean OpenMW KR4 installation completed."
 Write-Host "OpenMW         : $OpenMWPath"
 Write-Host "Korean mod     : $targetMod"
+Write-Host "Font           : Galmuri11"
 Write-Host "Video subtitles: $targetMod\video"
 Write-Host "Backup         : $backupDir"
-Write-Host ""
-Write-Host "The package installs the matching OpenMW executable, DLLs, plugins, Qt runtime, and resources together."
-Write-Host "The original BIK videos are not included or modified."

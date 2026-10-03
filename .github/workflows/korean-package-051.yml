@@ -1,4 +1,4 @@
-# Publish KR4 by repacking the validated KR3 payload with Galmuri11
+# Publish KR4 by repacking the validated KR3 payload with Galmuri11 (installer fix)
 name: Korean 0.51 KR4 Galmuri11 release
 
 on:
@@ -119,27 +119,32 @@ jobs:
           if-no-files-found: error
           compression-level: 0
 
-      - name: Publish KR4 release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ env.TAG }}
-          target_commitish: ${{ github.sha }}
-          name: OpenMW 0.51.0 Korean Support KR4
-          draft: false
-          prerelease: false
-          files: |
-            dist/${{ env.PACKAGE_NAME }}
-            dist/${{ env.PACKAGE_NAME }}.sha256
-          body: |
-            # OpenMW 0.51.0 Korean Support KR4
+      - name: Publish or replace KR4 release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > dist/release-notes.md <<'EOF'
+          # OpenMW 0.51.0 Korean Support KR4
 
-            KR3의 검증된 한국어 런타임/번역/영상 자막 구성은 유지하고, 한국어 UI 폰트를 **갈무리11(Galmuri11)** 로 되돌린 릴리즈입니다.
+          KR3의 검증된 한국어 엔진/번역/영상 자막 구성은 유지하고, 한국어 UI 폰트를 **갈무리11(Galmuri11)** 로 되돌린 릴리즈입니다.
 
-            ## KR4 변경
-            - `MysticCards` → `Galmuri11.ttf`, 안티앨리어싱 끔, 해상도 70
-            - `DejaVuLGCSansMono` 슬롯 → `Galmuri11.ttf`, 안티앨리어싱 끔, 해상도 58
-            - `DemonicLetters` 데이드릭 글꼴은 기존 그대로 유지
-            - Gowun Batang 폰트 파일과 라이선스는 패키지에서 제거
-            - 기존 KR3 런타임, 번역 ESP/CEL/MRK/TOP/l10n, 영상 SRT 구성은 유지
+          ## KR4 변경
+          - `MysticCards` → `Galmuri11.ttf`, 안티앨리어싱 끔, 해상도 70
+          - `DejaVuLGCSansMono` 슬롯 → `Galmuri11.ttf`, 안티앨리어싱 끔, 해상도 58
+          - `DemonicLetters` 데이드릭 글꼴은 기존 그대로 유지
+          - Gowun Batang 폰트 파일과 라이선스는 패키지에서 제거
+          - 기존 KR3의 `openmw.exe`, 번역 ESP/CEL/MRK/TOP/l10n, 영상 SRT 구성은 유지
+          - KR3 경량 패키지 구조(`payload/openmw.exe`, `payload/resources`)에 맞는 설치기로 교정
 
-            기존 KR3 사용자는 KR4를 설치하면 관리 대상 폰트 파일이 갈무리11 기준으로 교체됩니다.
+          기존 KR3 사용자는 KR4를 설치하면 관리 대상 엔진/폰트 파일과 한국어 모드가 백업된 뒤 갈무리11 기준으로 갱신됩니다.
+          EOF
+          sed -i 's/^          //' dist/release-notes.md
+
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$TAG" "dist/$PACKAGE_NAME" "dist/$PACKAGE_NAME.sha256" --repo "$GITHUB_REPOSITORY" --clobber
+            gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --target "${GITHUB_SHA}" --title "OpenMW 0.51.0 Korean Support KR4" --notes-file dist/release-notes.md
+          else
+            gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --target "${GITHUB_SHA}" --title "OpenMW 0.51.0 Korean Support KR4" --notes-file dist/release-notes.md "dist/$PACKAGE_NAME" "dist/$PACKAGE_NAME.sha256"
+          fi
