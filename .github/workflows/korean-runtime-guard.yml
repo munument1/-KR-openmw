@@ -47,7 +47,7 @@ jobs:
           git config core.autocrlf false
           # 0005 targets the clean upstream openmw-0.51.0 VideoWidget, while this fork's
           # VideoWidget also carries unrelated source differences. Its upstream apply/build
-          # validation is handled by korean-baseline-051.yml; source equivalence is guarded below.
+          # validation is handled by the manual korean-windows-port.yml build against the target upstream ref; source equivalence is guarded below.
           for patch in \
             korean/patches/0001-cjk-topic-discovery.patch \
             korean/patches/0002-utf8-bom-sidecars.patch \
