@@ -1,0 +1,99 @@
+name: Check Nexus upload credentials
+permissions:
+  contents: read
+jobs:
+  check:
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+    - name: Verify API key and upload target (read only)
+      uses: actions/github-script@v7
+      env:
+        NEXUS_API_KEY: ${{ secrets.NEXUSMODS_API_KEY }}
+        NEXUS_FILE_ID: ${{ vars.NEXUSMODS_FILE_ID }}
+      with:
+        script: "const rawKey = process.env.NEXUS_API_KEY || '';\nconst key = rawKey.trim();\ncore.setSecret(rawKey);\nif\
+          \ (/^\\d+$/.test(key)) throw new Error('The secret contains a numeric ID, not a Nexus Personal API Key.');\nif (/^(gh[pousr]_|github_pat_)/.test(key))\
+          \ throw new Error('The secret contains a GitHub token, not a Nexus Personal API Key.');\nif (/^https?:\\/\\//.test(key))\
+          \ throw new Error('The secret contains a URL, not a Nexus Personal API Key.');\nif (key !== rawKey) core.notice('Whitespace\
+          \ trimmed from the API key; update the stored secret without surrounding whitespace.');\nif (!key) throw new Error('NEXUSMODS_API_KEY\
+          \ must be a Repository secret, not a Variable.');\ncore.setSecret(key);\nasync function get(path) {\n  const response\
+          \ = await fetch('https://api.nexusmods.com' + path, {\n    headers: { apikey: key, 'User-Agent': 'KR-Patcher-Release-Sync'\
+          \ },\n    redirect: 'error'\n  });\n  if (!response.ok) throw new Error(`Nexus authentication/read failed: HTTP\
+          \ ${response.status} at ${path}`);\n  return response.json();\n}\nconst user = await get('/v1/users/validate.json');\n\
+          const mod = await get('/v1/games/morrowind/mods/60496.json');\nif (!mod.uid) throw new Error('Missing mod UID');\n\
+          if (String(user.user_id) !== String(mod.user?.member_id)) {\n  throw new Error('The API key account is not this\
+          \ mod owner. Verify contributor upload permissions before enabling publishing.');\n}\nconst files = (await get(`/v3/mods/${mod.uid}/files`)).data.mod_files;\n\
+          const configured = process.env.NEXUS_FILE_ID;\nconst candidates = files.filter(f => f.is_active && (!configured\
+          \ || String(f.id) === configured));\nif (candidates.length !== 1) throw new Error('Set NEXUSMODS_FILE_ID to exactly\
+          \ one active upload API File ID');\nconst id = String(candidates[0].id);\nconst versions = (await get(`/v3/mod-files/${id}/versions`)).data.versions;\n\
+          core.info(`Authenticated mod owner; upload API File ID: ${id}; readable versions: ${versions.length}`);\nawait core.summary.addHeading('Nexus\
+          \ credentials verified').addRaw('API authentication, mod ownership, file selection and version lookup passed. No\
+          \ file was uploaded.').write();\n"
+  package:
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+    - name: Select published patcher release
+      id: release
+      uses: actions/github-script@v7
+      with:
+        script: "const repo = context.repo;\nlet release;\nif (context.eventName === 'release') {\n  release = context.payload.release;\n\
+          } else if (process.env.REQUESTED_TAG) {\n  release = (await github.rest.repos.getReleaseByTag({ ...repo, tag: process.env.REQUESTED_TAG\
+          \ })).data;\n} else {\n  release = (await github.rest.repos.getLatestRelease(repo)).data;\n}\nif (release.draft\
+          \ || release.prerelease) {\n  core.setFailed('Only published stable releases can be uploaded.');\n  return;\n}\n\
+          const match = /^openmw-(\\d+\\.\\d+\\.\\d+)-kr(\\d+)$/i.exec(release.tag_name);\nif (!match) {\n  if (context.eventName\
+          \ === 'workflow_dispatch') core.setFailed('Expected a Korean tag such as openmw-0.51.0-kr4.');\n  else core.notice('This\
+          \ is not a Korean OpenMW release; skipping.');\n  return;\n}\nconst version = `${match[1]}-KR${Number(match[2])}`;\n\
+          // Compact release naming and the upstream-port bundle naming are both supported.\nconst names = [\n  `Morrowind-Korean-OpenMW-${version}-Full.zip`,\n\
+          \  `Morrowind-Korean-OpenMW-${release.tag_name}-Full.zip`\n];\nconst candidates = release.assets.filter(a => names.includes(a.name));\n\
+          if (candidates.length !== 1) {\n  core.setFailed('Expected exactly one Korean Full ZIP matching the release tag.');\n\
+          \  return;\n}\nconst asset = candidates[0];\nconst assetName = asset.name;\nconst checksumsName = `${assetName}.sha256`;\n\
+          const checksums = release.assets.find(a => a.name === checksumsName);\nif (!asset || !checksums || asset.state !==\
+          \ 'uploaded' || checksums.state !== 'uploaded') {\n  core.setFailed('Expected patcher and checksum assets are missing\
+          \ or unfinished.');\n  return;\n}\n// GITHUB_TOKEN-created releases do not trigger another release workflow.\n//\
+          \ Only mirror assets actually updated during the successful main build.\nif (context.eventName === 'workflow_run')\
+          \ {\n  const started = Date.parse(context.payload.workflow_run.run_started_at);\n  const finished = Date.parse(context.payload.workflow_run.updated_at);\n\
+          \  const updated = Date.parse(asset.updated_at);\n  if (!(updated >= started && updated <= finished)) {\n    core.notice('This\
+          \ build did not publish the selected release asset; skipping.');\n    return;\n  }\n}\ncore.setOutput('ready', 'true');\n\
+          core.setOutput('tag', release.tag_name);\ncore.setOutput('asset', assetName);\ncore.setOutput('checksums', checksumsName);\n\
+          core.setOutput('version', version);\ncore.setOutput('url', release.html_url);\n"
+    - name: Download release assets
+      if: steps.release.outputs.ready == 'true'
+      env:
+        TAG: ${{ steps.release.outputs.tag }}
+        ASSET: ${{ steps.release.outputs.asset }}
+        CHECKSUMS: ${{ steps.release.outputs.checksums }}
+      run: gh release download "$TAG" --pattern "$ASSET" --pattern "$CHECKSUMS" --dir release-assets
+    - name: Verify checksum and prepare ZIP
+      if: steps.release.outputs.ready == 'true'
+      id: package
+      env:
+        ASSET: ${{ steps.release.outputs.asset }}
+        CHECKSUMS: ${{ steps.release.outputs.checksums }}
+      run: "python3 - <<'PY'\nimport hashlib, os, re, zipfile\nfrom pathlib import Path\nroot = Path('release-assets')\nasset\
+        \ = root / os.environ['ASSET']\nexpected = []\nfor line in (root / os.environ['CHECKSUMS']).read_text(encoding='utf-8-sig').splitlines():\n\
+        \    match = re.fullmatch(r'([0-9a-fA-F]{64})\\s+\\*?(.+)', line)\n    if match and match[2] == asset.name:\n    \
+        \    expected.append(match[1].lower())\ndigest = hashlib.sha256(asset.read_bytes()).hexdigest()\nif expected != [digest]:\n\
+        \    raise SystemExit('Missing, ambiguous, or mismatched SHA256 checksum')\nif asset.suffix.lower() == '.exe':\n \
+        \   if asset.read_bytes()[:2] != b'MZ':\n        raise SystemExit('Invalid Windows executable')\n    package = asset.with_suffix('.zip')\n\
+        \    with zipfile.ZipFile(package, 'w', zipfile.ZIP_DEFLATED) as archive:\n        archive.write(asset, asset.name)\n\
+        else:\n    package = asset\nwith zipfile.ZipFile(package) as archive:\n    if archive.testzip() is not None or not\
+        \ archive.namelist():\n        raise SystemExit('Invalid or empty ZIP')\nwith open(os.environ['GITHUB_OUTPUT'], 'a',\
+        \ encoding='utf-8') as output:\n    output.write(f'filename={package.as_posix()}\\n')\nprint(f'Verified {asset.name}:\
+        \ {digest}')\nPY\n"
+'on':
+  pull_request:
+    types:
+    - opened
+    - synchronize
+    - reopened
+    paths:
+    - .github/workflows/nexus-auth-check.yml
+    - .github/workflows/nexus-publish.yml
+  workflow_dispatch: null
