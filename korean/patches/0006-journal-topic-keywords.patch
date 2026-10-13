@@ -1,0 +1,78 @@
+diff --git a/apps/openmw/mwgui/journalviewmodel.cpp b/apps/openmw/mwgui/journalviewmodel.cpp
+index 515e0c0..3d1af35 100644
+--- a/apps/openmw/mwgui/journalviewmodel.cpp
++++ b/apps/openmw/mwgui/journalviewmodel.cpp
+@@ -53,6 +53,12 @@ namespace MWGui
+                     const std::string topicId = Misc::StringUtils::lowerCase(topic.getName());
+                     mTopics[topicId] = &topic;
+                     mKeywordSearch.seed(translationStorage.topicKeyword(topic.getName()), topicId);
++                    // .mrk can replace the keyword with a dialogue-specific phrase.
++                    // Keep the canonical name and reviewed journal aliases searchable too,
++                    // without rewriting the text or timestamps stored in saved games.
++                    mKeywordSearch.seed(topic.getName(), topicId);
++                    for (std::string_view keyword : translationStorage.journalKeywords(topic.getName()))
++                        mKeywordSearch.seed(keyword, topicId);
+                 }
+ 
+                 mKeywordSearchLoaded = true;
+diff --git a/components/translation/translation.cpp b/components/translation/translation.cpp
+index 3c3054c..5149549 100644
+--- a/components/translation/translation.cpp
++++ b/components/translation/translation.cpp
+@@ -18,6 +18,7 @@ namespace Translation
+         loadData(mCellNamesTranslations, esmNameNoExtension, "cel", dataFileCollections);
+         loadData(mPhraseForms, esmNameNoExtension, "top", dataFileCollections);
+         loadData(mKeywords, esmNameNoExtension, "mrk", dataFileCollections);
++        loadData(mJournalKeywords, esmNameNoExtension, "jrn", dataFileCollections);
+     }
+ 
+     void Storage::loadData(ContainerType& container, std::string_view fileNameNoExtension, std::string_view extension,
+@@ -112,6 +113,17 @@ namespace Translation
+         mPhraseForms.emplace(phrase, topicId);
+     }
+ 
++    std::vector<std::string_view> Storage::journalKeywords(std::string_view topicId) const
++    {
++        std::vector<std::string_view> result;
++        for (const auto& [phrase, target] : mJournalKeywords)
++        {
++            if (target == topicId)
++                result.emplace_back(phrase);
++        }
++        return result;
++    }
++
+     void Storage::setEncoder(ToUTF8::Utf8Encoder* encoder)
+     {
+         mEncoder = encoder;
+diff --git a/components/translation/translation.hpp b/components/translation/translation.hpp
+index 9e2172e..4da7cf8 100644
+--- a/components/translation/translation.hpp
++++ b/components/translation/translation.hpp
+@@ -3,6 +3,7 @@
+ 
+ #include <components/files/collections.hpp>
+ #include <components/toutf8/toutf8.hpp>
++#include <vector>
+ 
+ namespace Translation
+ {
+@@ -21,6 +22,9 @@ namespace Translation
+         // The phrase that will act as the hyperlink for the given topic ID
+         std::string_view topicKeyword(std::string_view phrase) const;
+ 
++        // Explicit, reviewed aliases for journal text, including text stored in older saves.
++        std::vector<std::string_view> journalKeywords(std::string_view topicId) const;
++
+         // Manual population for testing
+         void addPhraseForm(std::string_view phrase, std::string_view topicId);
+ 
+@@ -35,7 +39,7 @@ namespace Translation
+         void loadDataFromStream(ContainerType& container, std::istream& stream);
+ 
+         ToUTF8::Utf8Encoder* mEncoder;
+-        ContainerType mCellNamesTranslations, mKeywords, mPhraseForms;
++        ContainerType mCellNamesTranslations, mKeywords, mPhraseForms, mJournalKeywords;
+     };
+ }
+ 

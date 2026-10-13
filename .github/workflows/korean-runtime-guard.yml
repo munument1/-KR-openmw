@@ -52,7 +52,8 @@ jobs:
             korean/patches/0001-cjk-topic-discovery.patch \
             korean/patches/0002-utf8-bom-sidecars.patch \
             korean/patches/0003-mixed-utf8-esm-reader.patch \
-            korean/patches/0004-legacy-korean-journal-recovery.patch; do
+            korean/patches/0004-legacy-korean-journal-recovery.patch \
+            korean/patches/0006-journal-topic-keywords.patch; do
             echo "Reverse-checking $patch"
             git apply --reverse --check "$patch"
           done
@@ -73,3 +74,5 @@ jobs:
           grep -F 'loadSubtitles(video);' apps/openmw/mwgui/videowidget.cpp
           grep -F 'subtitlePath = video.substr(0, dot) + ".srt";' apps/openmw/mwgui/videowidget.cpp
           grep -F 'mPlayer->getCurrentTime()' apps/openmw/mwgui/videowidget.cpp
+          grep -F 'translationStorage.journalKeywords(topic.getName())' apps/openmw/mwgui/journalviewmodel.cpp
+          grep -F 'loadData(mJournalKeywords, esmNameNoExtension, "jrn", dataFileCollections);' components/translation/translation.cpp

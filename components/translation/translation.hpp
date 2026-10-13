@@ -3,6 +3,7 @@
 
 #include <components/files/collections.hpp>
 #include <components/toutf8/toutf8.hpp>
+#include <vector>
 
 namespace Translation
 {
@@ -21,6 +22,9 @@ namespace Translation
         // The phrase that will act as the hyperlink for the given topic ID
         std::string_view topicKeyword(std::string_view phrase) const;
 
+        // Explicit, reviewed aliases for journal text, including text stored in older saves.
+        std::vector<std::string_view> journalKeywords(std::string_view topicId) const;
+
         // Manual population for testing
         void addPhraseForm(std::string_view phrase, std::string_view topicId);
 
@@ -35,7 +39,7 @@ namespace Translation
         void loadDataFromStream(ContainerType& container, std::istream& stream);
 
         ToUTF8::Utf8Encoder* mEncoder;
-        ContainerType mCellNamesTranslations, mKeywords, mPhraseForms;
+        ContainerType mCellNamesTranslations, mKeywords, mPhraseForms, mJournalKeywords;
     };
 }
 

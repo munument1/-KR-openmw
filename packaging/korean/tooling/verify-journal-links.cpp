@@ -1,0 +1,75 @@
+// Regression runner using the actual OpenMW keyword parser and Translation::Storage.
+#include <apps/openmw/mwdialogue/keywordsearch.hpp>
+#include <components/translation/translation.hpp>
+#include <components/misc/strings/algorithm.hpp>
+#include <cstdint>
+#include <fstream>
+#include <iostream>
+#include <set>
+#include <stdexcept>
+
+uint32_t count(std::istream& in)
+{
+    uint32_t n=0;
+    if(!in.read(reinterpret_cast<char*>(&n),4)) throw std::runtime_error("Truncated count");
+    return n;
+}
+std::string read(std::istream& in)
+{
+    auto n=count(in);
+    if(n>16*1024*1024) throw std::runtime_error("Oversized string");
+    std::string s(n,'\0');
+    if(!in.read(s.data(),n)) throw std::runtime_error("Truncated text");
+    return s;
+}
+void write(std::ostream& out,const std::string& s)
+{
+    uint32_t n=static_cast<uint32_t>(s.size());
+    out.write(reinterpret_cast<const char*>(&n),4);out.write(s.data(),n);
+}
+int main(int argc,char** argv)
+{
+    if(argc!=5) return 2;
+    std::ifstream in(argv[1],std::ios::binary);
+    std::ofstream out(argv[2],std::ios::binary);
+    MWDialogue::KeywordSearch parser;
+    Translation::Storage storage;
+    ToUTF8::Utf8Encoder encoder(ToUTF8::WINDOWS_1252);
+    storage.setEncoder(&encoder);
+    storage.loadTranslationData(Files::Collections({std::filesystem::path(argv[3])}),"Morrowind_Korean_ReTranslation.esp");
+    const bool patched = std::string_view(argv[4])=="patched";
+    std::set<std::string> known;
+    auto n=count(in);
+    while(n--)
+    {
+        auto topic=read(in);auto keyword=read(in);
+        auto id=Misc::StringUtils::lowerCase(topic);
+        known.insert(id);parser.seed(keyword,id);
+        if(patched)
+        {
+            parser.seed(topic,id);
+            for(auto alias:storage.journalKeywords(topic)) parser.seed(alias,id);
+        }
+    }
+    n=count(in);
+    while(n--) {auto alias=read(in);auto topic=read(in);storage.addPhraseForm(alias,topic);}
+    n=count(in);out.write(reinterpret_cast<const char*>(&n),4);
+    while(n--)
+    {
+        const auto text=read(in);
+        auto matches=parser.parseHyperText(text,storage);
+        std::string displayed;
+        auto pos=text.begin();
+        uint32_t links=0;
+        std::vector<std::string> targets;
+        for(const auto& m:matches)
+        {
+            displayed.append(pos,m.mBeg);displayed.append(m.getDisplayName());pos=m.mEnd;
+            if(known.count(m.mTopicId)) { ++links;targets.push_back(m.mTopicId); }
+        }
+        displayed.append(pos,text.end());
+        out.write(reinterpret_cast<const char*>(&links),4);write(out,displayed);
+        for(const auto& target:targets) write(out,target);
+    }
+    return out ? 0 : 3;
+}

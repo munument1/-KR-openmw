@@ -84,21 +84,14 @@ jobs:
         install -m 0644 _korean_port/files/data/fonts/Galmuri11.omwfont files/data/fonts/Galmuri11.omwfont
         install -m 0644 _korean_port/files/data/fonts/Galmuri11.ttf files/data/fonts/Galmuri11.ttf
         install -m 0644 _korean_port/files/data/fonts/Galmuri11-OFL-1.1.md files/data/fonts/Galmuri11-OFL-1.1.md
-        install -m 0644 _korean_port/files/data/fonts/GowunBatang-OFL.txt files/data/fonts/GowunBatang-OFL.txt
-
-        curl --fail --retry 3 -L \
-          -o files/data/fonts/GowunBatang-Bold.ttf \
-          https://raw.githubusercontent.com/yangheeryu/Gowun-Batang/master/fonts/ttf/GowunBatang-Bold.ttf
-        expected_gowun_blob=5c89211eaffc15f718f050269e0ee8f76eefd644
-        actual_gowun_blob=$( { printf 'blob %s\0' "$(wc -c < files/data/fonts/GowunBatang-Bold.ttf)"; cat files/data/fonts/GowunBatang-Bold.ttf; } | sha1sum | awk '{print $1}')
-        test "$actual_gowun_blob" = "$expected_gowun_blob"
 
         grep -F 'parseHyperText(text, mTranslationDataStorage, true)' apps/openmw/mwdialogue/dialoguemanagerimp.cpp
         grep -F 'if (isValidUtf8WithHangul(raw))' components/esm3/esmreader.cpp
         grep -F 'utf8BomMode ? std::string_view(line)' components/translation/translation.cpp
         grep -F 'recoverLegacyKoreanJournalText(mTopic, mInfoId, mText);' apps/openmw/mwdialogue/journalentry.cpp
-        grep -F 'GowunBatang-Bold.ttf' files/data/fonts/MysticCards.omwfont
-        grep -F 'Antialias" value="true"' files/data/fonts/MysticCards.omwfont
+        grep -F 'Galmuri11.ttf' files/data/fonts/MysticCards.omwfont
+        grep -F 'Antialias" value="false"' files/data/fonts/MysticCards.omwfont
+        grep -F 'translationStorage.journalKeywords(topic.getName())' apps/openmw/mwgui/journalviewmodel.cpp
         git diff --check
 
     - shell: bash
@@ -181,6 +174,14 @@ jobs:
 
     - name: Build OpenMW
       run: cmake --build ${{ github.workspace }}/build
+
+    - name: Store Korean runtime executable
+      if: ${{ inputs.korean_overlay }}
+      uses: actions/upload-artifact@v6
+      with:
+        name: korean-runtime-executable-${{ github.sha }}
+        path: ${{ github.workspace }}/build/openmw.exe
+        if-no-files-found: error
 
     - name: Copy missing DLLs
       run: |

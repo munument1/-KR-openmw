@@ -18,6 +18,7 @@ namespace Translation
         loadData(mCellNamesTranslations, esmNameNoExtension, "cel", dataFileCollections);
         loadData(mPhraseForms, esmNameNoExtension, "top", dataFileCollections);
         loadData(mKeywords, esmNameNoExtension, "mrk", dataFileCollections);
+        loadData(mJournalKeywords, esmNameNoExtension, "jrn", dataFileCollections);
     }
 
     void Storage::loadData(ContainerType& container, std::string_view fileNameNoExtension, std::string_view extension,
@@ -110,6 +111,17 @@ namespace Translation
     void Storage::addPhraseForm(std::string_view phrase, std::string_view topicId)
     {
         mPhraseForms.emplace(phrase, topicId);
+    }
+
+    std::vector<std::string_view> Storage::journalKeywords(std::string_view topicId) const
+    {
+        std::vector<std::string_view> result;
+        for (const auto& [phrase, target] : mJournalKeywords)
+        {
+            if (target == topicId)
+                result.emplace_back(phrase);
+        }
+        return result;
     }
 
     void Storage::setEncoder(ToUTF8::Utf8Encoder* encoder)
