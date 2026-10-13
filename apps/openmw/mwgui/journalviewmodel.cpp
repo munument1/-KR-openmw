@@ -1,4 +1,5 @@
 #include "journalviewmodel.hpp"
+#include "journalindex.hpp"
 
 #include <unordered_map>
 
@@ -272,7 +273,7 @@ namespace MWGui
                 Utf8Stream stream(topic.getName());
                 Utf8Stream::UnicodeChar first = Utf8Stream::toLowerUtf8(stream.peek());
 
-                if (first != Utf8Stream::toLowerUtf8(character))
+                if (!journalIndexMatches(first, character))
                     continue;
 
                 visitor(topic.getName());

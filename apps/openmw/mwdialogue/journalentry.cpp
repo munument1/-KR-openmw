@@ -1,9 +1,12 @@
 #include "journalentry.hpp"
+#include "legacykoreanname.hpp"
 
 #include <cstdint>
 #include <stdexcept>
 
 #include <components/esm3/journalentry.hpp>
+#include <components/esm3/loadcrea.hpp>
+#include <components/esm3/loadnpc.hpp>
 
 #include <components/interpreter/defines.hpp>
 
@@ -47,13 +50,31 @@ namespace
     }
 
     void recoverLegacyKoreanJournalText(
-        const ESM::RefId& topic, const ESM::RefId& infoId, std::string& savedText)
+        const ESM::RefId& topic, const ESM::RefId& infoId, std::string& savedText, std::string& actorName)
     {
         // Older Korean builds could save already-mojibaked journal strings. Only consider saved text that has
         // non-ASCII bytes but no Hangul, then require the same topic/INFO in the currently loaded content to contain
         // Hangul before replacing it. Normal Korean entries, plain ASCII entries and unrelated content are untouched.
-        if (containsUtf8Hangul(savedText) || !containsNonAscii(savedText))
+        const bool recoverText = !containsUtf8Hangul(savedText) && containsNonAscii(savedText);
+        const bool recoverActor = !containsUtf8Hangul(actorName) && containsNonAscii(actorName);
+        if (!recoverText && !recoverActor)
             return;
+
+        if (recoverActor)
+        {
+            const std::string decoded = MWDialogue::decodeLegacyKoreanName(actorName);
+            if (!decoded.empty())
+            {
+                const auto& store = *MWBase::Environment::get().getESMStore();
+                bool matched = false;
+                for (const auto& npc : store.get<ESM::NPC>())
+                    matched = matched || npc.mName == decoded;
+                for (const auto& creature : store.get<ESM::Creature>())
+                    matched = matched || creature.mName == decoded;
+                if (matched)
+                    actorName = decoded;
+            }
+        }
 
         const auto& dialogues = MWBase::Environment::get().getESMStore()->get<ESM::Dialogue>();
         const ESM::Dialogue* dialogue = dialogues.search(topic);
@@ -62,11 +83,29 @@ namespace
 
         for (const ESM::DialInfo& info : dialogue->mInfo)
         {
-            if (info.mId != infoId || !containsUtf8Hangul(info.mResponse))
+            if (info.mId != infoId)
                 continue;
 
-            MWScript::InterpreterContext interpreterContext(nullptr, MWWorld::Ptr());
-            savedText = Interpreter::fixDefinesDialog(info.mResponse, interpreterContext);
+            if (recoverText && containsUtf8Hangul(info.mResponse))
+            {
+                MWScript::InterpreterContext interpreterContext(nullptr, MWWorld::Ptr());
+                savedText = Interpreter::fixDefinesDialog(info.mResponse, interpreterContext);
+            }
+            // Only an explicitly named INFO speaker can safely identify a legacy header.
+            if (recoverActor && !containsUtf8Hangul(actorName) && !info.mActor.empty())
+            {
+                const auto& store = *MWBase::Environment::get().getESMStore();
+                if (const auto* npc = store.get<ESM::NPC>().search(info.mActor))
+                {
+                    if (containsUtf8Hangul(npc->mName))
+                        actorName = npc->mName;
+                }
+                else if (const auto* creature = store.get<ESM::Creature>().search(info.mActor))
+                {
+                    if (containsUtf8Hangul(creature->mName))
+                        actorName = creature->mName;
+                }
+            }
             return;
         }
     }
@@ -105,6 +144,7 @@ namespace MWDialogue
         , mText(record.mText)
         , mActorName(record.mActorName)
     {
+        recoverLegacyKoreanJournalText(record.mTopic, record.mInfo, mText, mActorName);
     }
 
     const std::string& Entry::getText() const
@@ -129,7 +169,6 @@ namespace MWDialogue
         : Entry(record)
         , mTopic(record.mTopic)
     {
-        recoverLegacyKoreanJournalText(mTopic, mInfoId, mText);
     }
 
     void JournalEntry::write(ESM::JournalEntry& entry) const

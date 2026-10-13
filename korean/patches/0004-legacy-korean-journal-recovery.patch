@@ -1,18 +1,23 @@
 diff --git a/apps/openmw/mwdialogue/journalentry.cpp b/apps/openmw/mwdialogue/journalentry.cpp
 --- a/apps/openmw/mwdialogue/journalentry.cpp
 +++ b/apps/openmw/mwdialogue/journalentry.cpp
-@@ -1,5 +1,6 @@
+@@ -1,8 +1,12 @@
  #include "journalentry.hpp"
++#include "legacykoreanname.hpp"
  
 +#include <cstdint>
  #include <stdexcept>
  
  #include <components/esm3/journalentry.hpp>
-@@ -13,6 +14,63 @@
- #include "../mwworld/globals.hpp"
++#include <components/esm3/loadcrea.hpp>
++#include <components/esm3/loadnpc.hpp>
+ 
+ #include <components/interpreter/defines.hpp>
+ 
+@@ -14,6 +18,99 @@
  
  #include "../mwscript/interpretercontext.hpp"
-+
+ 
 +namespace
 +{
 +    bool containsUtf8Hangul(std::string_view text)
@@ -45,13 +50,31 @@ diff --git a/apps/openmw/mwdialogue/journalentry.cpp b/apps/openmw/mwdialogue/jo
 +    }
 +
 +    void recoverLegacyKoreanJournalText(
-+        const ESM::RefId& topic, const ESM::RefId& infoId, std::string& savedText)
++        const ESM::RefId& topic, const ESM::RefId& infoId, std::string& savedText, std::string& actorName)
 +    {
 +        // Older Korean builds could save already-mojibaked journal strings. Only consider saved text that has
 +        // non-ASCII bytes but no Hangul, then require the same topic/INFO in the currently loaded content to contain
 +        // Hangul before replacing it. Normal Korean entries, plain ASCII entries and unrelated content are untouched.
-+        if (containsUtf8Hangul(savedText) || !containsNonAscii(savedText))
++        const bool recoverText = !containsUtf8Hangul(savedText) && containsNonAscii(savedText);
++        const bool recoverActor = !containsUtf8Hangul(actorName) && containsNonAscii(actorName);
++        if (!recoverText && !recoverActor)
 +            return;
++
++        if (recoverActor)
++        {
++            const std::string decoded = MWDialogue::decodeLegacyKoreanName(actorName);
++            if (!decoded.empty())
++            {
++                const auto& store = *MWBase::Environment::get().getESMStore();
++                bool matched = false;
++                for (const auto& npc : store.get<ESM::NPC>())
++                    matched = matched || npc.mName == decoded;
++                for (const auto& creature : store.get<ESM::Creature>())
++                    matched = matched || creature.mName == decoded;
++                if (matched)
++                    actorName = decoded;
++            }
++        }
 +
 +        const auto& dialogues = MWBase::Environment::get().getESMStore()->get<ESM::Dialogue>();
 +        const ESM::Dialogue* dialogue = dialogues.search(topic);
@@ -60,23 +83,113 @@ diff --git a/apps/openmw/mwdialogue/journalentry.cpp b/apps/openmw/mwdialogue/jo
 +
 +        for (const ESM::DialInfo& info : dialogue->mInfo)
 +        {
-+            if (info.mId != infoId || !containsUtf8Hangul(info.mResponse))
++            if (info.mId != infoId)
 +                continue;
 +
-+            MWScript::InterpreterContext interpreterContext(nullptr, MWWorld::Ptr());
-+            savedText = Interpreter::fixDefinesDialog(info.mResponse, interpreterContext);
++            if (recoverText && containsUtf8Hangul(info.mResponse))
++            {
++                MWScript::InterpreterContext interpreterContext(nullptr, MWWorld::Ptr());
++                savedText = Interpreter::fixDefinesDialog(info.mResponse, interpreterContext);
++            }
++            // Only an explicitly named INFO speaker can safely identify a legacy header.
++            if (recoverActor && !containsUtf8Hangul(actorName) && !info.mActor.empty())
++            {
++                const auto& store = *MWBase::Environment::get().getESMStore();
++                if (const auto* npc = store.get<ESM::NPC>().search(info.mActor))
++                {
++                    if (containsUtf8Hangul(npc->mName))
++                        actorName = npc->mName;
++                }
++                else if (const auto* creature = store.get<ESM::Creature>().search(info.mActor))
++                {
++                    if (containsUtf8Hangul(creature->mName))
++                        actorName = creature->mName;
++                }
++            }
 +            return;
 +        }
 +    }
 +}
- 
++
  namespace MWDialogue
  {
-@@ -71,6 +129,7 @@
-         : Entry(record)
-         , mTopic(record.mTopic)
+     Entry::Entry(const ESM::RefId& topic, const ESM::RefId& infoId, const MWWorld::Ptr& actor)
+@@ -47,6 +144,7 @@ namespace MWDialogue
+         , mText(record.mText)
+         , mActorName(record.mActorName)
      {
-+        recoverLegacyKoreanJournalText(mTopic, mInfoId, mText);
++        recoverLegacyKoreanJournalText(record.mTopic, record.mInfo, mText, mActorName);
      }
  
-     void JournalEntry::write(ESM::JournalEntry& entry) const
+     const std::string& Entry::getText() const
+diff --git a/apps/openmw/mwdialogue/legacykoreanname.hpp b/apps/openmw/mwdialogue/legacykoreanname.hpp
+new file mode 100644
+--- /dev/null
++++ b/apps/openmw/mwdialogue/legacykoreanname.hpp
+@@ -0,0 +1,66 @@
++#ifndef OPENMW_MWDIALOGUE_LEGACYKOREANNAME_H
++#define OPENMW_MWDIALOGUE_LEGACYKOREANNAME_H
++
++#include <components/misc/utf8stream.hpp>
++
++namespace MWDialogue
++{
++    // Verified legacy font components from saved names whose INFO explicitly names
++    // the speaker. Unsupported vowels/finals are deliberately not guessed.
++    inline std::string decodeLegacyKoreanName(std::string_view text)
++    {
++        Utf8Stream stream(text);
++        std::string result;
++        bool foundSyllable = false;
++        while (!stream.eof())
++        {
++            auto initial = stream.consume();
++            int leading = -1;
++            if (initial >= 0x10 && initial <= 0x1f)
++                leading = initial - 0x10;
++            else if (initial == 0x0192) leading = 16;
++            else if (initial == 0x2021) leading = 17;
++            else if (initial == 0x00b0) leading = 18;
++            else if (initial >= 0x20 && initial <= 0x7e)
++            {
++                result += static_cast<char>(initial);
++                continue;
++            }
++            if (leading < 0 || stream.eof())
++                return {};
++            auto medial = stream.consume();
++            int vowel;
++            switch (medial)
++            {
++                case 0xa1: vowel = 0; break;
++                case 0xaa: vowel = 5; break;
++                case 0xb2: vowel = 6; break;
++                case 0xb7: vowel = 8; break;
++                case 0xbd: vowel = 12; break;
++                case 0xbf: vowel = 13; break;
++                case 0xc9: vowel = 18; break;
++                case 0xd6: vowel = 20; break;
++                default: return {};
++            }
++            if (stream.eof())
++                return {};
++            int final;
++            switch (stream.consume())
++            {
++                case 0x7f: final = 0; break;
++                case 0xe1: final = 4; break;
++                case 0xe6: final = 8; break;
++                case 0xf4: final = 21; break;
++                case 0xf7: final = 23; break;
++                default: return {};
++            }
++            unsigned syllable = 0xac00 + (leading * 21 + vowel) * 28 + final;
++            result += static_cast<char>(0xe0 | (syllable >> 12));
++            result += static_cast<char>(0x80 | ((syllable >> 6) & 0x3f));
++            result += static_cast<char>(0x80 | (syllable & 0x3f));
++            foundSyllable = true;
++        }
++        return foundSyllable ? result : std::string();
++    }
++}
++#endif

@@ -1,0 +1,187 @@
+diff --git a/apps/openmw/mwgui/journalbooks.cpp b/apps/openmw/mwgui/journalbooks.cpp
+index c0b0708..c8ec1c9 100644
+--- a/apps/openmw/mwgui/journalbooks.cpp
++++ b/apps/openmw/mwgui/journalbooks.cpp
+@@ -1,4 +1,5 @@
+ #include "journalbooks.hpp"
++#include "journalindex.hpp"
+ 
+ #include "../mwbase/environment.hpp"
+ #include "../mwbase/windowmanager.hpp"
+@@ -221,6 +222,16 @@ namespace MWGui
+ 
+     std::shared_ptr<TypesetBook> JournalBooks::createTopicIndexBook()
+     {
++        mKoreanIndex = false;
++        bool hasKoreanTopics = false;
++        for (auto initial : koreanJournalInitials)
++            mModel->visitTopicNamesStartingWith(initial, [&](std::string_view) { hasKoreanTopics = true; });
++        if (hasKoreanTopics)
++        {
++            mKoreanIndex = true;
++            return createKoreanJournalIndex()->complete();
++        }
++
+         bool isRussian = (mEncoding == ToUTF8::WINDOWS_1251);
+ 
+         std::shared_ptr<BookTypesetter> typesetter
+@@ -229,6 +240,29 @@ namespace MWGui
+         return typesetter->complete();
+     }
+ 
++    std::shared_ptr<BookTypesetter> JournalBooks::createKoreanJournalIndex()
++    {
++        auto typesetter = BookTypesetter::create(92, 260);
++        typesetter->setSectionAlignment(BookTypesetter::AlignCenter);
++        mIndexPagesCount = 2;
++        auto* body = typesetter->createStyle({}, MyGUI::Colour::Black);
++        const auto& colours = MWBase::Environment::get().getWindowManager()->getTextColours();
++        constexpr std::array<std::string_view, 16> labels{
++            "ㄱ", "ㄴ", "ㄷ", "ㄹ", "ㅁ", "ㅂ", "ㅅ", "ㅇ", "ㅈ", "ㅊ", "ㅋ", "ㅌ", "ㅍ", "ㅎ", "A-Z", "#" };
++        for (size_t i = 0; i < labels.size(); ++i)
++        {
++            if (i == 8)
++                typesetter->sectionBreak(260); // Force the second column even with a small font.
++            auto id = i < koreanJournalInitials.size() ? koreanJournalInitials[i]
++                                                     : Utf8Stream::UnicodeChar(i == 14 ? '*' : '#');
++            auto* style = typesetter->createHotStyle(
++                body, colours.journalTopic, colours.journalTopicOver, colours.journalTopicPressed, id);
++            typesetter->write(style, "( " + std::string(labels[i]) + " )");
++            typesetter->lineBreak();
++        }
++        return typesetter;
++    }
++
+     std::shared_ptr<BookTypesetter> JournalBooks::createLatinJournalIndex()
+     {
+         std::shared_ptr<BookTypesetter> typesetter = BookTypesetter::create(92, 260);
+diff --git a/apps/openmw/mwgui/journalbooks.hpp b/apps/openmw/mwgui/journalbooks.hpp
+index 73348d7..a1724fb 100644
+--- a/apps/openmw/mwgui/journalbooks.hpp
++++ b/apps/openmw/mwgui/journalbooks.hpp
+@@ -26,10 +26,12 @@ namespace MWGui
+ 
+         ToUTF8::FromType mEncoding;
+         int mIndexPagesCount;
++        bool mKoreanIndex{ false };
+ 
+     private:
+         std::shared_ptr<BookTypesetter> createTypesetter();
+         std::shared_ptr<BookTypesetter> createLatinJournalIndex();
++        std::shared_ptr<BookTypesetter> createKoreanJournalIndex();
+         std::shared_ptr<BookTypesetter> createCyrillicJournalIndex();
+     };
+ }
+diff --git a/apps/openmw/mwgui/journalindex.hpp b/apps/openmw/mwgui/journalindex.hpp
+new file mode 100644
+index 0000000..4a6a6d4
+--- /dev/null
++++ b/apps/openmw/mwgui/journalindex.hpp
+@@ -0,0 +1,46 @@
++#ifndef OPENMW_MWGUI_JOURNALINDEX_H
++#define OPENMW_MWGUI_JOURNALINDEX_H
++
++#include <array>
++#include <components/misc/utf8stream.hpp>
++
++namespace MWGui
++{
++    inline constexpr std::array<Utf8Stream::UnicodeChar, 14> koreanJournalInitials{
++        0x3131, 0x3134, 0x3137, 0x3139, 0x3141, 0x3142, 0x3145,
++        0x3147, 0x3148, 0x314a, 0x314b, 0x314c, 0x314d, 0x314e };
++
++    constexpr Utf8Stream::UnicodeChar koreanJournalInitial(Utf8Stream::UnicodeChar first)
++    {
++        constexpr std::array<unsigned, 19> groups{ 0, 0, 1, 2, 2, 3, 4, 5, 5, 6, 6, 7, 8, 8, 9, 10, 11, 12, 13 };
++        if (first >= 0xac00 && first <= 0xd7a3)
++            return koreanJournalInitials[groups[(first - 0xac00) / (21 * 28)]];
++        if (first >= 0x1100 && first <= 0x1112)
++            return koreanJournalInitials[groups[first - 0x1100]];
++        for (auto initial : koreanJournalInitials)
++            if (first == initial)
++                return initial;
++        switch (first)
++        {
++            case 0x3132: return 0x3131;
++            case 0x3138: return 0x3137;
++            case 0x3143: return 0x3142;
++            case 0x3146: return 0x3145;
++            case 0x3149: return 0x3148;
++            default: return 0;
++        }
++    }
++
++    inline bool journalIndexMatches(Utf8Stream::UnicodeChar first, Utf8Stream::UnicodeChar selected)
++    {
++        first = Utf8Stream::toLowerUtf8(first);
++        if (selected == '*')
++            return first >= 'a' && first <= 'z';
++        if (selected == '#')
++            return !koreanJournalInitial(first) && !(first >= 'a' && first <= 'z');
++        if (koreanJournalInitial(selected))
++            return koreanJournalInitial(first) == koreanJournalInitial(selected);
++        return first == Utf8Stream::toLowerUtf8(selected);
++    }
++}
++#endif
+diff --git a/apps/openmw/mwgui/journalviewmodel.cpp b/apps/openmw/mwgui/journalviewmodel.cpp
+index 3d1af35..a5c454d 100644
+--- a/apps/openmw/mwgui/journalviewmodel.cpp
++++ b/apps/openmw/mwgui/journalviewmodel.cpp
+@@ -1,4 +1,5 @@
+ #include "journalviewmodel.hpp"
++#include "journalindex.hpp"
+ 
+ #include <unordered_map>
+ 
+@@ -272,7 +273,7 @@ namespace MWGui
+                 Utf8Stream stream(topic.getName());
+                 Utf8Stream::UnicodeChar first = Utf8Stream::toLowerUtf8(stream.peek());
+ 
+-                if (first != Utf8Stream::toLowerUtf8(character))
++                if (!journalIndexMatches(first, character))
+                     continue;
+ 
+                 visitor(topic.getName());
+diff --git a/apps/openmw/mwgui/journalwindow.cpp b/apps/openmw/mwgui/journalwindow.cpp
+index f7f76cf..2055ff3 100644
+--- a/apps/openmw/mwgui/journalwindow.cpp
++++ b/apps/openmw/mwgui/journalwindow.cpp
+@@ -1,4 +1,5 @@
+ #include "journalwindow.hpp"
++#include "journalindex.hpp"
+ 
+ #include <set>
+ #include <stack>
+@@ -475,6 +476,12 @@ namespace
+             if (!mTopicIndexBook)
+                 mTopicIndexBook = createTopicIndexBook();
+ 
++            if (mKoreanIndex)
++            {
++                mIndexRowCount = 8;
++                mSelectedIndex %= 16;
++            }
++
+             if (mIndexPagesCount == 3)
+             {
+                 getPage(LeftTopicIndex)->showPage(mTopicIndexBook, 0);
+@@ -734,7 +741,7 @@ namespace
+         {
+             setIndexControllerFocus(false);
+ 
+-            int numChars = mEncoding == ToUTF8::WINDOWS_1251 ? 30 : 26;
++            int numChars = mKoreanIndex ? 16 : (mEncoding == ToUTF8::WINDOWS_1251 ? 30 : 26);
+             size_t col = mSelectedIndex / mIndexRowCount;
+ 
+             if (offset == -1) // Up
+@@ -793,6 +800,9 @@ namespace
+                         russianOffset++; // 27, not 28, because of skipping char 26
+                     bool isRussian = (mEncoding == ToUTF8::WINDOWS_1251);
+                     size_t ch = isRussian ? mSelectedIndex + russianOffset : mSelectedIndex + 'A';
++                    if (mKoreanIndex)
++                        ch = mSelectedIndex < MWGui::koreanJournalInitials.size() ? MWGui::koreanJournalInitials[mSelectedIndex]
++                                                                         : (mSelectedIndex == 14 ? '*' : '#');
+                     notifyIndexLinkClicked(static_cast<Utf8Stream::UnicodeChar>(ch));
+                 }
+             }

@@ -26,10 +26,12 @@ namespace MWGui
 
         ToUTF8::FromType mEncoding;
         int mIndexPagesCount;
+        bool mKoreanIndex{ false };
 
     private:
         std::shared_ptr<BookTypesetter> createTypesetter();
         std::shared_ptr<BookTypesetter> createLatinJournalIndex();
+        std::shared_ptr<BookTypesetter> createKoreanJournalIndex();
         std::shared_ptr<BookTypesetter> createCyrillicJournalIndex();
     };
 }
