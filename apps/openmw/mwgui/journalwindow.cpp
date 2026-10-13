@@ -1,4 +1,5 @@
 #include "journalwindow.hpp"
+#include "journalindex.hpp"
 
 #include <set>
 #include <stack>
@@ -475,6 +476,12 @@ namespace
             if (!mTopicIndexBook)
                 mTopicIndexBook = createTopicIndexBook();
 
+            if (mKoreanIndex)
+            {
+                mIndexRowCount = 8;
+                mSelectedIndex %= 16;
+            }
+
             if (mIndexPagesCount == 3)
             {
                 getPage(LeftTopicIndex)->showPage(mTopicIndexBook, 0);
@@ -734,7 +741,7 @@ namespace
         {
             setIndexControllerFocus(false);
 
-            int numChars = mEncoding == ToUTF8::WINDOWS_1251 ? 30 : 26;
+            int numChars = mKoreanIndex ? 16 : (mEncoding == ToUTF8::WINDOWS_1251 ? 30 : 26);
             size_t col = mSelectedIndex / mIndexRowCount;
 
             if (offset == -1) // Up
@@ -793,6 +800,9 @@ namespace
                         russianOffset++; // 27, not 28, because of skipping char 26
                     bool isRussian = (mEncoding == ToUTF8::WINDOWS_1251);
                     size_t ch = isRussian ? mSelectedIndex + russianOffset : mSelectedIndex + 'A';
+                    if (mKoreanIndex)
+                        ch = mSelectedIndex < koreanJournalInitials.size() ? koreanJournalInitials[mSelectedIndex]
+                                                                         : (mSelectedIndex == 14 ? '*' : '#');
                     notifyIndexLinkClicked(static_cast<Utf8Stream::UnicodeChar>(ch));
                 }
             }

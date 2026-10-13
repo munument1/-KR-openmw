@@ -1,4 +1,5 @@
 #include "journalbooks.hpp"
+#include "journalindex.hpp"
 
 #include "../mwbase/environment.hpp"
 #include "../mwbase/windowmanager.hpp"
@@ -221,12 +222,45 @@ namespace MWGui
 
     std::shared_ptr<TypesetBook> JournalBooks::createTopicIndexBook()
     {
+        mKoreanIndex = false;
+        bool hasKoreanTopics = false;
+        for (auto initial : koreanJournalInitials)
+            mModel->visitTopicNamesStartingWith(initial, [&](std::string_view) { hasKoreanTopics = true; });
+        if (hasKoreanTopics)
+        {
+            mKoreanIndex = true;
+            return createKoreanJournalIndex()->complete();
+        }
+
         bool isRussian = (mEncoding == ToUTF8::WINDOWS_1251);
 
         std::shared_ptr<BookTypesetter> typesetter
             = isRussian ? createCyrillicJournalIndex() : createLatinJournalIndex();
 
         return typesetter->complete();
+    }
+
+    std::shared_ptr<BookTypesetter> JournalBooks::createKoreanJournalIndex()
+    {
+        auto typesetter = BookTypesetter::create(92, 260);
+        typesetter->setSectionAlignment(BookTypesetter::AlignCenter);
+        mIndexPagesCount = 2;
+        auto* body = typesetter->createStyle({}, MyGUI::Colour::Black);
+        const auto& colours = MWBase::Environment::get().getWindowManager()->getTextColours();
+        constexpr std::array<std::string_view, 16> labels{
+            "ㄱ", "ㄴ", "ㄷ", "ㄹ", "ㅁ", "ㅂ", "ㅅ", "ㅇ", "ㅈ", "ㅊ", "ㅋ", "ㅌ", "ㅍ", "ㅎ", "A-Z", "#" };
+        for (size_t i = 0; i < labels.size(); ++i)
+        {
+            if (i == 8)
+                typesetter->sectionBreak();
+            auto id = i < koreanJournalInitials.size() ? koreanJournalInitials[i]
+                                                     : Utf8Stream::UnicodeChar(i == 14 ? '*' : '#');
+            auto* style = typesetter->createHotStyle(
+                body, colours.journalTopic, colours.journalTopicOver, colours.journalTopicPressed, id);
+            typesetter->write(style, "( " + std::string(labels[i]) + " )");
+            typesetter->lineBreak();
+        }
+        return typesetter;
     }
 
     std::shared_ptr<BookTypesetter> JournalBooks::createLatinJournalIndex()

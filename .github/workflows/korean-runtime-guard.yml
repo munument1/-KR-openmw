@@ -59,7 +59,8 @@ jobs:
             korean/patches/0002-utf8-bom-sidecars.patch \
             korean/patches/0003-mixed-utf8-esm-reader.patch \
             korean/patches/0004-legacy-korean-journal-recovery.patch \
-            korean/patches/0006-journal-topic-keywords.patch; do
+            korean/patches/0006-journal-topic-keywords.patch \
+            korean/patches/0007-korean-journal-index.patch; do
             echo "Reverse-checking $patch"
             git apply --reverse --check "$patch"
           done
@@ -76,7 +77,7 @@ jobs:
           grep -F 'bool isValidUtf8WithHangul(std::string_view input)' components/esm3/esmreader.cpp
           grep -F 'if (isValidUtf8WithHangul(raw))' components/esm3/esmreader.cpp
           grep -F 'void recoverLegacyKoreanJournalText(' apps/openmw/mwdialogue/journalentry.cpp
-          grep -F 'recoverLegacyKoreanJournalText(record.mTopic, record.mInfo, mText);' apps/openmw/mwdialogue/journalentry.cpp
+          grep -F 'recoverLegacyKoreanJournalText(record.mTopic, record.mInfo, mText, mActorName);' apps/openmw/mwdialogue/journalentry.cpp
           grep -F 'loadSubtitles(video);' apps/openmw/mwgui/videowidget.cpp
           grep -F 'subtitlePath = video.substr(0, dot) + ".srt";' apps/openmw/mwgui/videowidget.cpp
           grep -F 'mPlayer->getCurrentTime()' apps/openmw/mwgui/videowidget.cpp
@@ -97,3 +98,8 @@ jobs:
             components/debug/debuglog.cpp \
             -o /tmp/verify-journal-links
           python3 packaging/korean/tooling/test_journal_links.py /tmp/verify-journal-links
+
+      - name: Verify Korean journal index groups
+        run: |
+          g++ -std=c++20 -O2 -I. packaging/korean/tooling/test-journal-index.cpp -o /tmp/test-journal-index
+          /tmp/test-journal-index
