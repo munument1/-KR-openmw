@@ -176,7 +176,7 @@ def main():
     if not top.endswith(b'\n'): top+=b'\r\n'
     top+=''.join(f'{phrase}\t{topic}\r\n' for phrase,topic in EXTRA_FORMS.items()).encode('utf-8')
     top_path.write_bytes(top)
-    (a.output/'Morrowind_Korean_ReTranslation.jrn').write_text(''.join(f'{phrase}\t{topic}\r\n' for phrase,topic in EXTRA_FORMS.items()),'utf-8-sig')
+    (a.output/'Morrowind_Korean_ReTranslation.jrn').write_bytes(b'\xef\xbb\xbf'+''.join(f'{phrase}\t{topic}\r\n' for phrase,topic in EXTRA_FORMS.items()).encode('utf-8'))
     report={'source_sha256':hashlib.sha256(original).hexdigest(),'output_sha256':hashlib.sha256(output).hexdigest(),'journal_entries_scanned':len(entries),'journal_entries_changed':len(changes),'new_explicit_links':inserted,'potions':NAMES,'added_topic_forms':EXTRA_FORMS,'visible_text_unchanged':True,'existing_tags_preserved':True,'potion_gameplay_fields_unchanged':True,'journal_changes':changes}
     (a.output.parent/'kr5-data-verification.json').write_text(json.dumps(report,ensure_ascii=False,indent=2),'utf-8')
     print(json.dumps({k:v for k,v in report.items() if k!='journal_changes'},ensure_ascii=False,indent=2))

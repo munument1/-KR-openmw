@@ -24,7 +24,8 @@ $requiredModFiles = @(
     "Morrowind_Korean_ReTranslation.esp",
     "Morrowind_Korean_ReTranslation.cel",
     "Morrowind_Korean_ReTranslation.mrk",
-    "Morrowind_Korean_ReTranslation.top"
+    "Morrowind_Korean_ReTranslation.top",
+    "Morrowind_Korean_ReTranslation.jrn"
 )
 $requiredSubtitleFiles = @(
     "mw_intro.srt",
