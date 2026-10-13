@@ -42,7 +42,11 @@ int main(int argc,char** argv)
     auto n=count(in);
     while(n--)
     {
-        auto topic=read(in);auto keyword=read(in);
+        auto topic=read(in);
+        // Consume the protocol's reference value, but use the actual loader result:
+        // first-wins duplicate handling and BOM/line endings must match the engine.
+        read(in);
+        auto keyword=storage.topicKeyword(topic);
         auto id=Misc::StringUtils::lowerCase(topic);
         known.insert(id);parser.seed(keyword,id);
         if(patched)
