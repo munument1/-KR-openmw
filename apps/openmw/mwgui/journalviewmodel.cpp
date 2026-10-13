@@ -53,6 +53,12 @@ namespace MWGui
                     const std::string topicId = Misc::StringUtils::lowerCase(topic.getName());
                     mTopics[topicId] = &topic;
                     mKeywordSearch.seed(translationStorage.topicKeyword(topic.getName()), topicId);
+                    // .mrk can replace the keyword with a dialogue-specific phrase.
+                    // Keep the canonical name and reviewed journal aliases searchable too,
+                    // without rewriting the text or timestamps stored in saved games.
+                    mKeywordSearch.seed(topic.getName(), topicId);
+                    for (std::string_view keyword : translationStorage.journalKeywords(topic.getName()))
+                        mKeywordSearch.seed(keyword, topicId);
                 }
 
                 mKeywordSearchLoaded = true;

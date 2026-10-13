@@ -14,6 +14,9 @@ on:
       - components/esm3/esmreader.cpp
       - components/translation/translation.cpp
       - korean/patches/**
+      - apps/openmw/mwgui/journalviewmodel.cpp
+      - components/translation/translation.hpp
+      - packaging/korean/tooling/**
       - .github/workflows/korean-runtime-guard.yml
   pull_request:
     branches:
@@ -28,6 +31,9 @@ on:
       - components/esm3/esmreader.cpp
       - components/translation/translation.cpp
       - korean/patches/**
+      - apps/openmw/mwgui/journalviewmodel.cpp
+      - components/translation/translation.hpp
+      - packaging/korean/tooling/**
       - .github/workflows/korean-runtime-guard.yml
   workflow_dispatch:
 
@@ -52,7 +58,8 @@ jobs:
             korean/patches/0001-cjk-topic-discovery.patch \
             korean/patches/0002-utf8-bom-sidecars.patch \
             korean/patches/0003-mixed-utf8-esm-reader.patch \
-            korean/patches/0004-legacy-korean-journal-recovery.patch; do
+            korean/patches/0004-legacy-korean-journal-recovery.patch \
+            korean/patches/0006-journal-topic-keywords.patch; do
             echo "Reverse-checking $patch"
             git apply --reverse --check "$patch"
           done
@@ -73,3 +80,20 @@ jobs:
           grep -F 'loadSubtitles(video);' apps/openmw/mwgui/videowidget.cpp
           grep -F 'subtitlePath = video.substr(0, dot) + ".srt";' apps/openmw/mwgui/videowidget.cpp
           grep -F 'mPlayer->getCurrentTime()' apps/openmw/mwgui/videowidget.cpp
+          grep -F 'translationStorage.journalKeywords(topic.getName())' apps/openmw/mwgui/journalviewmodel.cpp
+          grep -F 'loadData(mJournalKeywords, esmNameNoExtension, "jrn", dataFileCollections);' components/translation/translation.cpp
+
+      - name: Verify journal links with the real parser and sidecar loader
+        run: |
+          set -euo pipefail
+          g++ -std=c++20 -O2 -I. \
+            packaging/korean/tooling/verify-journal-links.cpp \
+            apps/openmw/mwdialogue/keywordsearch.cpp \
+            components/translation/translation.cpp \
+            components/files/collections.cpp \
+            components/files/multidircollection.cpp \
+            components/files/conversion.cpp \
+            components/toutf8/toutf8.cpp \
+            components/debug/debuglog.cpp \
+            -o /tmp/verify-journal-links
+          python3 packaging/korean/tooling/test_journal_links.py /tmp/verify-journal-links
