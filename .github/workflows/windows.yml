@@ -88,7 +88,7 @@ jobs:
         grep -F 'parseHyperText(text, mTranslationDataStorage, true)' apps/openmw/mwdialogue/dialoguemanagerimp.cpp
         grep -F 'if (isValidUtf8WithHangul(raw))' components/esm3/esmreader.cpp
         grep -F 'utf8BomMode ? std::string_view(line)' components/translation/translation.cpp
-        grep -F 'recoverLegacyKoreanJournalText(mTopic, mInfoId, mText);' apps/openmw/mwdialogue/journalentry.cpp
+        grep -F 'recoverLegacyKoreanJournalText(record.mTopic, record.mInfo, mText);' apps/openmw/mwdialogue/journalentry.cpp
         grep -F 'Galmuri11.ttf' files/data/fonts/MysticCards.omwfont
         grep -F 'Antialias" value="false"' files/data/fonts/MysticCards.omwfont
         grep -F 'translationStorage.journalKeywords(topic.getName())' apps/openmw/mwgui/journalviewmodel.cpp

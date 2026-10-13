@@ -57,7 +57,7 @@ jobs:
           grep -F 'bool isValidUtf8WithHangul(std::string_view input)' "$target/components/esm3/esmreader.cpp"
           grep -F 'if (isValidUtf8WithHangul(raw))' "$target/components/esm3/esmreader.cpp"
           grep -F 'void recoverLegacyKoreanJournalText(' "$target/apps/openmw/mwdialogue/journalentry.cpp"
-          grep -F 'recoverLegacyKoreanJournalText(mTopic, mInfoId, mText);' "$target/apps/openmw/mwdialogue/journalentry.cpp"
+          grep -F 'recoverLegacyKoreanJournalText(record.mTopic, record.mInfo, mText);' "$target/apps/openmw/mwdialogue/journalentry.cpp"
 
       - name: Show patched files
         run: |

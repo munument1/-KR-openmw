@@ -72,11 +72,11 @@ diff --git a/apps/openmw/mwdialogue/journalentry.cpp b/apps/openmw/mwdialogue/jo
  
  namespace MWDialogue
  {
-@@ -71,6 +129,7 @@
-         : Entry(record)
-         , mTopic(record.mTopic)
+@@ -46,6 +104,7 @@
+         , mText(record.mText)
+         , mActorName(record.mActorName)
      {
-+        recoverLegacyKoreanJournalText(mTopic, mInfoId, mText);
++        recoverLegacyKoreanJournalText(record.mTopic, record.mInfo, mText);
      }
  
-     void JournalEntry::write(ESM::JournalEntry& entry) const
+     const std::string& Entry::getText() const

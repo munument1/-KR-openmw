@@ -105,6 +105,7 @@ namespace MWDialogue
         , mText(record.mText)
         , mActorName(record.mActorName)
     {
+        recoverLegacyKoreanJournalText(record.mTopic, record.mInfo, mText);
     }
 
     const std::string& Entry::getText() const
@@ -129,7 +130,6 @@ namespace MWDialogue
         : Entry(record)
         , mTopic(record.mTopic)
     {
-        recoverLegacyKoreanJournalText(mTopic, mInfoId, mText);
     }
 
     void JournalEntry::write(ESM::JournalEntry& entry) const
