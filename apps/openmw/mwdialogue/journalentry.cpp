@@ -1,4 +1,5 @@
 #include "journalentry.hpp"
+#include "legacykoreanname.hpp"
 
 #include <cstdint>
 #include <stdexcept>
@@ -57,6 +58,22 @@ namespace
         if (!recoverText && !recoverActor)
             return;
 
+        if (recoverActor)
+        {
+            const std::string decoded = MWDialogue::decodeLegacyKoreanName(actorName);
+            if (!decoded.empty())
+            {
+                const auto& store = *MWBase::Environment::get().getESMStore();
+                bool matched = false;
+                for (const auto& npc : store.get<ESM::NPC>())
+                    matched = matched || npc.mName == decoded;
+                for (const auto& creature : store.get<ESM::Creature>())
+                    matched = matched || creature.mName == decoded;
+                if (matched)
+                    actorName = decoded;
+            }
+        }
+
         const auto& dialogues = MWBase::Environment::get().getESMStore()->get<ESM::Dialogue>();
         const ESM::Dialogue* dialogue = dialogues.search(topic);
         if (!dialogue)
@@ -73,7 +90,7 @@ namespace
                 savedText = Interpreter::fixDefinesDialog(info.mResponse, interpreterContext);
             }
             // Only an explicitly named INFO speaker can safely identify a legacy header.
-            if (recoverActor && !info.mActor.empty())
+            if (recoverActor && !containsUtf8Hangul(actorName) && !info.mActor.empty())
             {
                 const auto& store = *MWBase::Environment::get().getESMStore();
                 if (const auto* npc = store.get<ESM::NPC>().search(info.mActor))

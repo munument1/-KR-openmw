@@ -103,3 +103,5 @@ jobs:
         run: |
           g++ -std=c++20 -O2 -I. packaging/korean/tooling/test-journal-index.cpp -o /tmp/test-journal-index
           /tmp/test-journal-index
+          g++ -std=c++20 -O2 -I. packaging/korean/tooling/test-legacy-korean-name.cpp -o /tmp/test-legacy-korean-name
+          /tmp/test-legacy-korean-name
