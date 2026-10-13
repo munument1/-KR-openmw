@@ -5,11 +5,11 @@ index c0b0708..5264153 100644
 @@ -1,4 +1,5 @@
  #include "journalbooks.hpp"
 +#include "journalindex.hpp"
-
+ 
  #include "../mwbase/environment.hpp"
  #include "../mwbase/windowmanager.hpp"
 @@ -221,6 +222,16 @@ namespace MWGui
-
+ 
      std::shared_ptr<TypesetBook> JournalBooks::createTopicIndexBook()
      {
 +        mKoreanIndex = false;
@@ -23,12 +23,12 @@ index c0b0708..5264153 100644
 +        }
 +
          bool isRussian = (mEncoding == ToUTF8::WINDOWS_1251);
-
+ 
          std::shared_ptr<BookTypesetter> typesetter
 @@ -229,6 +240,29 @@ namespace MWGui
          return typesetter->complete();
      }
-
+ 
 +    std::shared_ptr<BookTypesetter> JournalBooks::createKoreanJournalIndex()
 +    {
 +        auto typesetter = BookTypesetter::create(92, 260);
@@ -60,11 +60,11 @@ index 73348d7..a1724fb 100644
 --- a/apps/openmw/mwgui/journalbooks.hpp
 +++ b/apps/openmw/mwgui/journalbooks.hpp
 @@ -26,10 +26,12 @@ namespace MWGui
-
+ 
          ToUTF8::FromType mEncoding;
          int mIndexPagesCount;
 +        bool mKoreanIndex{ false };
-
+ 
      private:
          std::shared_ptr<BookTypesetter> createTypesetter();
          std::shared_ptr<BookTypesetter> createLatinJournalIndex();
@@ -131,17 +131,17 @@ index 3d1af35..a5c454d 100644
 @@ -1,4 +1,5 @@
  #include "journalviewmodel.hpp"
 +#include "journalindex.hpp"
-
+ 
  #include <unordered_map>
-
+ 
 @@ -272,7 +273,7 @@ namespace MWGui
                  Utf8Stream stream(topic.getName());
                  Utf8Stream::UnicodeChar first = Utf8Stream::toLowerUtf8(stream.peek());
-
+ 
 -                if (first != Utf8Stream::toLowerUtf8(character))
 +                if (!journalIndexMatches(first, character))
                      continue;
-
+ 
                  visitor(topic.getName());
 diff --git a/apps/openmw/mwgui/journalwindow.cpp b/apps/openmw/mwgui/journalwindow.cpp
 index f7f76cf..2055ff3 100644
@@ -150,13 +150,13 @@ index f7f76cf..2055ff3 100644
 @@ -1,4 +1,5 @@
  #include "journalwindow.hpp"
 +#include "journalindex.hpp"
-
+ 
  #include <set>
  #include <stack>
 @@ -475,6 +476,12 @@ namespace
              if (!mTopicIndexBook)
                  mTopicIndexBook = createTopicIndexBook();
-
+ 
 +            if (mKoreanIndex)
 +            {
 +                mIndexRowCount = 8;
@@ -169,11 +169,11 @@ index f7f76cf..2055ff3 100644
 @@ -734,7 +741,7 @@ namespace
          {
              setIndexControllerFocus(false);
-
+ 
 -            int numChars = mEncoding == ToUTF8::WINDOWS_1251 ? 30 : 26;
 +            int numChars = mKoreanIndex ? 16 : (mEncoding == ToUTF8::WINDOWS_1251 ? 30 : 26);
              size_t col = mSelectedIndex / mIndexRowCount;
-
+ 
              if (offset == -1) // Up
 @@ -793,6 +800,9 @@ namespace
                          russianOffset++; // 27, not 28, because of skipping char 26

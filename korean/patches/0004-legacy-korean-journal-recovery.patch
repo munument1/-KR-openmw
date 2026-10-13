@@ -4,15 +4,15 @@ diff --git a/apps/openmw/mwdialogue/journalentry.cpp b/apps/openmw/mwdialogue/jo
 @@ -1,5 +1,7 @@
  #include "journalentry.hpp"
 +#include "legacykoreanname.hpp"
-
+ 
 +#include <cstdint>
  #include <stdexcept>
-
+ 
  #include <components/esm3/journalentry.hpp>
 @@ -14,6 +16,99 @@
-
+ 
  #include "../mwscript/interpretercontext.hpp"
-
+ 
 +namespace
 +{
 +    bool containsUtf8Hangul(std::string_view text)
@@ -115,7 +115,7 @@ diff --git a/apps/openmw/mwdialogue/journalentry.cpp b/apps/openmw/mwdialogue/jo
      {
 +        recoverLegacyKoreanJournalText(record.mTopic, record.mInfo, mText, mActorName);
      }
-
+ 
      const std::string& Entry::getText() const
 diff --git a/apps/openmw/mwdialogue/legacykoreanname.hpp b/apps/openmw/mwdialogue/legacykoreanname.hpp
 new file mode 100644
