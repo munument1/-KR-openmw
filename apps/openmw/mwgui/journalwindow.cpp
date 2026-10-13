@@ -801,7 +801,7 @@ namespace
                     bool isRussian = (mEncoding == ToUTF8::WINDOWS_1251);
                     size_t ch = isRussian ? mSelectedIndex + russianOffset : mSelectedIndex + 'A';
                     if (mKoreanIndex)
-                        ch = mSelectedIndex < koreanJournalInitials.size() ? koreanJournalInitials[mSelectedIndex]
+                        ch = mSelectedIndex < MWGui::koreanJournalInitials.size() ? MWGui::koreanJournalInitials[mSelectedIndex]
                                                                          : (mSelectedIndex == 14 ? '*' : '#');
                     notifyIndexLinkClicked(static_cast<Utf8Stream::UnicodeChar>(ch));
                 }
