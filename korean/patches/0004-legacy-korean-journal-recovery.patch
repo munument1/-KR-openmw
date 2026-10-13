@@ -1,7 +1,7 @@
 diff --git a/apps/openmw/mwdialogue/journalentry.cpp b/apps/openmw/mwdialogue/journalentry.cpp
 --- a/apps/openmw/mwdialogue/journalentry.cpp
 +++ b/apps/openmw/mwdialogue/journalentry.cpp
-@@ -1,5 +1,7 @@
+@@ -1,8 +1,12 @@
  #include "journalentry.hpp"
 +#include "legacykoreanname.hpp"
  
@@ -9,7 +9,12 @@ diff --git a/apps/openmw/mwdialogue/journalentry.cpp b/apps/openmw/mwdialogue/jo
  #include <stdexcept>
  
  #include <components/esm3/journalentry.hpp>
-@@ -14,6 +16,99 @@
++#include <components/esm3/loadcrea.hpp>
++#include <components/esm3/loadnpc.hpp>
+ 
+ #include <components/interpreter/defines.hpp>
+ 
+@@ -14,6 +18,99 @@
  
  #include "../mwscript/interpretercontext.hpp"
  
@@ -109,7 +114,7 @@ diff --git a/apps/openmw/mwdialogue/journalentry.cpp b/apps/openmw/mwdialogue/jo
  namespace MWDialogue
  {
      Entry::Entry(const ESM::RefId& topic, const ESM::RefId& infoId, const MWWorld::Ptr& actor)
-@@ -47,6 +142,7 @@ namespace MWDialogue
+@@ -47,6 +144,7 @@ namespace MWDialogue
          , mText(record.mText)
          , mActorName(record.mActorName)
      {

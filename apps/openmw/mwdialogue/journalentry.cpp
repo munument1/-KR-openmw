@@ -5,6 +5,8 @@
 #include <stdexcept>
 
 #include <components/esm3/journalentry.hpp>
+#include <components/esm3/loadcrea.hpp>
+#include <components/esm3/loadnpc.hpp>
 
 #include <components/interpreter/defines.hpp>
 
