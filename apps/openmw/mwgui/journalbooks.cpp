@@ -252,7 +252,7 @@ namespace MWGui
         for (size_t i = 0; i < labels.size(); ++i)
         {
             if (i == 8)
-                typesetter->sectionBreak();
+                typesetter->sectionBreak(260); // Force the second column even with a small font.
             auto id = i < koreanJournalInitials.size() ? koreanJournalInitials[i]
                                                      : Utf8Stream::UnicodeChar(i == 14 ? '*' : '#');
             auto* style = typesetter->createHotStyle(
